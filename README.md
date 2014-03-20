@@ -6,4 +6,4 @@ pLua is a long term effort to build a set of methods (functions and procedures),
 
 ## License #
 
-pLua-XE is licensed under the MIT license. See the LICENSE file for details.
+pLua-XE is licensed under the MIT license. See [the LICENSE](https://github.com/felipedaragon/pLua-XE/blob/master/LICENSE) file for details.
