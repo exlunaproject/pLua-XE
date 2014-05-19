@@ -1,8 +1,11 @@
 unit LuaObject;
 
-(*
- * FD 2013 - Updated for XE3
- *)
+{
+  Copyright (c) 2007 Jeremy Darling
+  Modifications copyright (c) 2010-2014 Felipe Daragon
+  
+  License: MIT (http://opensource.org/licenses/mit-license.php)
+}
 
 {$IFDEF FPC}
 {$mode objfpc}{$H+}
@@ -81,6 +84,13 @@ uses
 
 const
   LuaTLuaObjectClassName = 'TLuaObject';
+  
+type
+{$IFDEF UNICODE}
+  lwPCha_r = PAnsiChar;
+{$ELSE}
+  lwPCha_r = PChar;
+{$ENDIF}
 
 constructor TLuaObject.Create(LuaState : PLua_State; AParent : TLuaObject = nil);
 begin
@@ -147,7 +157,7 @@ var
 begin
   lua_rawgeti (L, LUA_REGISTRYINDEX, FLuaReference); // Place our object on the stack
   idx := lua_gettop(L);
-  lua_pushliteral(L, PAnsiChar(PropName)); // Place the event name on the stack
+  lua_pushliteral(L, lwPCha_r(PropName)); // Place the event name on the stack
   lua_gettable(L, idx); // try to get the item
   result := plua_tovariant(L, lua_gettop(L));
   lua_pop(L, 2);
@@ -159,7 +169,7 @@ var
 begin
   lua_rawgeti (L, LUA_REGISTRYINDEX, FLuaReference); // Place our object on the stack
   idx := lua_gettop(L);
-  lua_pushstring(L, PAnsiChar(propName));
+  lua_pushstring(L, lwPCha_r(propName));
   plua_pushvariant(L, AValue);
   lua_rawset(L, idx);
 end;
@@ -253,7 +263,7 @@ begin
       lua_pop(L, 1);
     end
   else
-    luaL_error(L, PAnsiChar('Class table expected.'));
+    luaL_error(L, lwPCha_r('Class table expected.'));
 end;
 
 procedure PushTLuaObject(L: PLua_State; ObjectInstance: TLuaObject);
@@ -347,7 +357,7 @@ begin
     // so we push the value into the Lua Object reference.
       TableIndex := plua_absindex(L, 1);
       ValueIndex := plua_absindex(L, 3);
-      lua_pushstring(L, PAnsiChar(propName));
+      lua_pushstring(L, lwPCha_r(propName));
       lua_pushvalue(L, ValueIndex);
       lua_rawset(L, TableIndex);
     end;
@@ -368,7 +378,7 @@ procedure RegisterObjectInstance(L: Plua_State; aClassName, InstanceName: AnsiSt
 var
   idx, idx2, mt : Integer;
 begin
-  lua_pushliteral(L, PAnsiChar(InstanceName));
+  lua_pushliteral(L, lwPCha_r(InstanceName));
   lua_newtable(L);
 
   ObjectInstance.FLuaReference := luaL_ref(L, LUA_REGISTRYINDEX);
@@ -383,7 +393,7 @@ begin
   lua_newtable(L);
   mt := lua_gettop(L);
 
-  lua_pushliteral(L, PAnsiChar(aClassName));
+  lua_pushliteral(L, lwPCha_r(aClassName));
   lua_gettable(L, LUA_GLOBALSINDEX);
   idx2 := lua_gettop(L);
 
@@ -397,7 +407,7 @@ end;
 
 procedure RegisterMethod(L : Plua_State; TheMethodName : AnsiString; TheMethodAddress : lua_CFunction; classTable : Integer);
 begin
-  lua_pushliteral(L, PAnsiChar(TheMethodName));
+  lua_pushliteral(L, lwPCha_r(TheMethodName));
   lua_pushcfunction(L, TheMethodAddress);
   lua_rawset(L, classTable);
 end;
@@ -426,7 +436,7 @@ begin
   lua_newtable(L);
   mt := lua_gettop(L);
 
-  lua_pushliteral(L, PAnsiChar(aClassName));
+  lua_pushliteral(L, lwPCha_r(aClassName));
   lua_gettable(L, LUA_GLOBALSINDEX);
   idx2 := lua_gettop(L);
 
@@ -464,7 +474,7 @@ procedure RegisterTLuaObject(L: Plua_State; ObjectName : AnsiString;
 var
   classTable : Integer;
 begin
-  lua_pushstring(L, PAnsiChar(ObjectName));
+  lua_pushstring(L, lwPCha_r(ObjectName));
   lua_newtable(L);
   classTable := lua_gettop(L);
 

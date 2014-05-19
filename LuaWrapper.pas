@@ -1,9 +1,16 @@
 unit LuaWrapper;
 
-(*
- * FD 2010 - Added LocateCall & Push
- * FD 2013 - Updated for XE3
- *)
+{
+  Copyright (c) 2007 Jeremy Darling
+  Modifications copyright (c) 2010-2014 Felipe Daragon
+  
+  License: MIT (http://opensource.org/licenses/mit-license.php)
+  
+  Changes:
+  * 16.05.2010, FD - Added LocateCall & Push.
+  * 06.05.2013, FD - Added support for Delphi XE2 or higher.
+  * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
+}
 
 interface
 
@@ -140,6 +147,13 @@ uses
   SysUtils,
   pLuaObject,
   pLuaRecord;
+  
+type
+{$IFDEF UNICODE}
+  lwPCha_r = PAnsiChar;
+{$ELSE}
+  lwPCha_r = PChar;
+{$ENDIF}
  
 constructor TLUA.Create{$IFDEF TLuaAsComponent}(anOwner: TComponent){$ENDIF};
 begin
@@ -158,7 +172,7 @@ end;
 
 procedure TLUA.LocateCall(const AMethod:String); // FD: 16/05/2010, added
 begin
-  lua_getglobal(L,PAnsiChar(AMethod));
+  lua_getglobal(L,lwPCha_r(AMethod));
 end;
 
 procedure TLUA.Push(AParam:Variant); // FD: 16/05/2010, added
@@ -171,11 +185,11 @@ begin
     varDouble:lua_pushnumber(L,Double(AParam));
     varString:begin
                AText:=VarToStr(AParam);
-               lua_pushstring(L,PAnsiChar(AText));
+               lua_pushstring(L,lwPCha_r(AText));
              end;
     varOLEStr:begin
                 AText:=UTF8EnCode(VarToWideStr(AParam));
-                lua_pushstring(L,PAnsiChar(AText));
+                lua_pushstring(L,lwPCha_r(AText));
               end;
     varBoolean:lua_pushboolean(L,(AParam = True));
     //else LastError:=letPush; // FD: 16/05/2010, ToDo, restore later
@@ -187,10 +201,10 @@ begin
   if L = nil then
     Open;
   if FScript <> '' then
-    ErrorTest(luaL_loadbuffer(L, PAnsiChar(FScript), length(FScript), PAnsiChar(LibName)))
+    ErrorTest(luaL_loadbuffer(L, lwPCha_r(FScript), length(FScript), lwPCha_r(LibName)))
   else
     if FLibFile <> '' then
-      ErrorTest(luaL_loadfile(L, PAnsiChar(FLibFile)))
+      ErrorTest(luaL_loadfile(L, lwPCha_r(FLibFile)))
     else
       exit;
   ErrorTest(lua_pcall(L, 0, 0, 0));
@@ -200,7 +214,7 @@ procedure TLUA.ExecuteCmd(Script: AnsiString);
 begin
   if L= nil then
     Open;
-  ErrorTest(luaL_loadbuffer(L, PAnsiChar(Script), Length(Script), PAnsiChar(LibName)));
+  ErrorTest(luaL_loadbuffer(L, lwPCha_r(Script), Length(Script), lwPCha_r(LibName)));
   ErrorTest(lua_pcall(L, 0, 0, 0));
 end;
 
@@ -212,7 +226,7 @@ begin
   if L = nil then
     Open;
 
-  ErrorTest(luaL_loadfile(L, PAnsiChar(FileName)));
+  ErrorTest(luaL_loadfile(L, lwPCha_r(FileName)));
 {
   if L = nil then
     Open;
@@ -223,7 +237,7 @@ begin
   finally
     sl.Free;
   end;
-  ErrorTest(luaL_loadbuffer(L, PAnsiChar(Script), Length(Script), PAnsiChar(LibName)));   }
+  ErrorTest(luaL_loadbuffer(L, lwPCha_r(Script), Length(Script), lwPCha_r(LibName)));   }
   ErrorTest(lua_pcall(L, 0, 0, 0));
 end;
 
@@ -232,7 +246,7 @@ begin
   lua_pushstring(L, 'package');
   lua_gettable(L, LUA_GLOBALSINDEX);
   lua_pushstring(L, 'path');
-  lua_pushstring(L, PAnsiChar(AValue));
+  lua_pushstring(L, lwPCha_r(AValue));
   lua_settable(L, -3);
 end;
 
@@ -242,7 +256,7 @@ begin
     Open;
   FLibFile := FileName;
   FScript := '';
-  luaL_loadfile(L, PAnsiChar(FileName));
+  luaL_loadfile(L, lwPCha_r(FileName));
 end;
 
 procedure TLUA.LoadScript(Script: AnsiString);
@@ -254,12 +268,12 @@ begin
   FScript := Trim(Script);
   FLibFile := '';
   if FScript <> '' then
-    luaL_loadbuffer(L, PAnsiChar(Script), length(Script), PAnsiChar(LibName));
+    luaL_loadbuffer(L, lwPCha_r(Script), length(Script), lwPCha_r(LibName));
 end;
 
 function TLUA.FunctionExists(aMethodName: AnsiString): Boolean;
 begin
-  lua_pushstring(L, PAnsiChar(aMethodName));
+  lua_pushstring(L, lwPCha_r(aMethodName));
   lua_rawget(L, LUA_GLOBALSINDEX);
   result := (not lua_isnil(L, -1)) and lua_isfunction(L, -1);
   lua_pop(L, 1);
@@ -269,7 +283,7 @@ procedure TLUA.RegisterLUAMethod(aMethodName: AnsiString; Func: lua_CFunction);
 begin
   if L = nil then
     Open;
-  lua_register(L, PAnsiChar(aMethodName), Func);
+  lua_register(L, lwPCha_r(aMethodName), Func);
   if FMethods.IndexOf(aMethodName) = -1 then
     FMethods.AddObject(aMethodName, TObject(@Func))
   else
@@ -292,7 +306,7 @@ begin
   lua_pushstring(L, 'package');
   lua_gettable(L, LUA_GLOBALSINDEX);
   lua_pushstring(L, 'cpath');
-  lua_pushstring(L, PAnsiChar(AValue));
+  lua_pushstring(L, lwPCha_r(AValue));
   lua_settable(L, -3);
 end;
 
@@ -308,7 +322,7 @@ end;
 function TLUA.GetValue(valName : AnsiString): Variant;
 begin
   result := NULL;
-  lua_pushstring(l, PAnsiChar(valName));
+  lua_pushstring(l, lwPCha_r(valName));
   lua_rawget(l, LUA_GLOBALSINDEX);
   try
     result := plua_tovariant(l, -1);
@@ -380,13 +394,13 @@ end;
 
 procedure TLUA.SetOnException(const AValue: TLuaOnException);
 begin
-  if @FOnException=@AValue then exit; // FD: 16/05/2010, changed AValue to @AValue
+  if @FOnException=@AValue then exit; // FD: 16/05/2010, changed to @AValue
   FOnException:=AValue;
 end;
 
 procedure TLUA.SetOnLoadLibs(const AValue: TLuaOnLoadLibs);
 begin
-  if @FOnLoadLibs=@AValue then exit; // FD: 16/05/2010, changed AValue to @AValue
+  if @FOnLoadLibs=@AValue then exit; // FD: 16/05/2010, changed to @AValue
   FOnLoadLibs:=AValue;
   //if (L <> nil) and (FOnLoadLibs <> nil) then
   if (L <> nil) and (assigned(FOnLoadLibs)) then // FD: 16/05/2010, added assigned
@@ -431,13 +445,13 @@ procedure TLUA.SetValue(valName : AnsiString; const AValue: Variant);
 begin
   if VarIsType(AValue, varString) then
     begin
-      lua_pushliteral(l, PAnsiChar(valName));
-      lua_pushstring(l, PAnsiChar(AnsiString(AValue)));
+      lua_pushliteral(l, lwPCha_r(valName));
+      lua_pushstring(l, lwPCha_r(AnsiString(AValue)));
       lua_settable(L, LUA_GLOBALSINDEX);
     end
   else
     begin
-      lua_pushliteral(l, PAnsiChar(valName));
+      lua_pushliteral(l, lwPCha_r(valName));
       plua_pushvariant(l, AValue);
       lua_settable(L, LUA_GLOBALSINDEX);
     end;
@@ -466,13 +480,13 @@ end;
 function TLUA.TableFunctionExists(TableName,
   FunctionName: AnsiString; out tblidx : Integer): Boolean;
 begin
-  lua_pushstring(L, PAnsiChar(TableName));
+  lua_pushstring(L, lwPCha_r(TableName));
   lua_rawget(L, LUA_GLOBALSINDEX);
   result := lua_istable(L, -1);
   if result then
     begin
       tblidx := lua_gettop(L);
-      lua_pushstring(L, PAnsiChar(FunctionName));
+      lua_pushstring(L, lwPCha_r(FunctionName));
       lua_rawget(L, -2);
       result := lua_isfunction(L, -1);
       lua_pop(L, 1);
@@ -498,7 +512,7 @@ end;
 
 function TLUAThread.GetIsValid: Boolean;
 begin
-  lua_getglobal(L, PAnsiChar(FThreadName));
+  lua_getglobal(L, lwPCha_r(FThreadName));
   result := not lua_isnil(L, 1);
   lua_pop(L, 1);
 end;
@@ -507,14 +521,14 @@ constructor TLUAThread.Create(LUAInstance: TLUA; ThreadName: AnsiString);
 begin
   L := lua_newthread(LUAInstance.LuaState);
   FThreadName := ThreadName;
-  lua_setglobal(LUAInstance.LuaState, PAnsiChar(ThreadName));
+  lua_setglobal(LUAInstance.LuaState, lwPCha_r(ThreadName));
   FMaster := LUAInstance;
 end;
 
 destructor TLUAThread.Destroy;
 begin
   lua_pushnil(FMaster.LuaState);
-  lua_setglobal(FMaster.LuaState, PAnsiChar(FThreadName));
+  lua_setglobal(FMaster.LuaState, lwPCha_r(FThreadName));
   inherited;
 end;
 
@@ -533,16 +547,16 @@ begin
   FMethodName := AMethodName;
   if TableName <> '' then
     begin
-      lua_pushstring(L, PAnsiChar(TableName));
+      lua_pushstring(L, lwPCha_r(TableName));
       lua_gettable(L, LUA_GLOBALSINDEX);
-      plua_pushstring(L, PAnsiChar(AMethodName));
+      plua_pushstring(L, lwPCha_r(AMethodName));
       lua_rawget(L, -2);
     end
   else
-    lua_getglobal(L, PAnsiChar(AMethodName));
+    lua_getglobal(L, lwPCha_r(AMethodName));
 
   for i := 0 to Length(ArgNames)-1 do
-    lua_getglobal(L, PAnsiChar(ArgNames[i]));
+    lua_getglobal(L, lwPCha_r(ArgNames[i]));
 
   if luaResume(L, Length(ArgNames), rres) then
     begin

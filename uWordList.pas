@@ -1,8 +1,11 @@
 unit uWordList;
 
-(*
- * FD 2013 - Updated for XE3
- *)
+{
+  Copyright (c) 2007 Jeremy Darling
+  Modifications copyright (c) 2010-2014 Felipe Daragon
+  
+  License: MIT (http://opensource.org/licenses/mit-license.php)
+}
 
 {$IFDEF FPC}
 {$mode objfpc}{$H+}
@@ -11,7 +14,16 @@ unit uWordList;
 interface
 
 uses
-  Classes, SysUtils; 
+  Classes, SysUtils;
+  
+type
+{$IFDEF UNICODE}
+  lwPCha_r = PAnsiChar;
+  lwCha_r = AnsiChar;
+{$ELSE}
+  lwPCha_r = PChar;
+  lwCha_r = Char;
+{$ENDIF}
 
 type
   PWordListSymbol = ^TWordListSymbol;
@@ -19,7 +31,7 @@ type
   TWordListSymbolArray = Array of PWordListSymbol;
   TWordListReleaseWordData = procedure(DataPointer : Pointer) of object;
   TWordListSymbol = packed record
-    c     : AnsiChar;    // What character is this?
+    c     : lwCha_r;    // What character is this?
     eow   : boolean; // Is this the last character of a word?
     data  : Pointer; // Anything
     below : TWordListSymbolArray; // Next characters in words.
@@ -37,9 +49,9 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    function Add(WhatChar : AnsiChar; ParentNode : PWordListSymbol; IsEnd : Boolean) : PWordListSymbol;
-    function Exists(WhatChar : AnsiChar; ParentNode : PWordListSymbol; out IsEnd : Boolean) : Boolean; overload;
-    function Exists(WhatChar : AnsiChar; ParentNode : PWordListSymbol) : PWordListSymbol; overload;
+    function Add(WhatChar : lwCha_r; ParentNode : PWordListSymbol; IsEnd : Boolean) : PWordListSymbol;
+    function Exists(WhatChar : lwCha_r; ParentNode : PWordListSymbol; out IsEnd : Boolean) : Boolean; overload;
+    function Exists(WhatChar : lwCha_r; ParentNode : PWordListSymbol) : PWordListSymbol; overload;
     procedure Clear(OnReleaseWordData : TWordListReleaseWordData = nil);
     property Size : Integer read fSize;
     property Data : PWordListSymbol read GetData;
@@ -96,9 +108,9 @@ const
 function  TWordList.InternalAddWord(WhatWord : AnsiString) : PWordListSymbol;
 var
   n  : PWordListSymbol;
-  pc : PAnsiChar;
+  pc : lwPCha_r;
 begin
-  pc := PAnsiChar(WhatWord+#0);
+  pc := lwPCha_r(WhatWord+#0);
   n  := fDict.Data;
   while pc^<>#0 do
     begin
@@ -116,11 +128,11 @@ end;
 function TWordList.GetWordData(AWord: AnsiString): Pointer;
 var
   n  : PWordListSymbol;
-  pc : PAnsiChar;
+  pc : lwPCha_r;
 begin
   result := nil;
   n  := fDict.Data;
-  pc := PAnsiChar(AWord+#0);
+  pc := lwPCha_r(AWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -133,11 +145,11 @@ end;
 function TWordList.GetWordSymbol(AWord: AnsiString): PWordListSymbol;
 var
   n  : PWordListSymbol;
-  pc : PAnsiChar;
+  pc : lwPCha_r;
 begin
   result := nil;
   n  := fDict.Data;
-  pc := PAnsiChar(AWord+#0);
+  pc := lwPCha_r(AWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -169,10 +181,10 @@ end;
 procedure TWordList.SetWordData(AWord: AnsiString; const AValue: Pointer);
 var
   n  : PWordListSymbol;
-  pc : PAnsiChar;
+  pc : lwPCha_r;
 begin
   n  := fDict.Data;
-  pc := PAnsiChar(AWord+#0);
+  pc := lwPCha_r(AWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -186,13 +198,13 @@ end;
 
 function TWordList.WordValid(WhatWord: AnsiString): Boolean;
 var
-  pc : PAnsiChar;
+  pc : lwPCha_r;
 begin
   result := false;
   if length(trim(WhatWord)) > 0 then
     begin
       result := true;
-      pc := PAnsiChar(WhatWord+#0);
+      pc := lwPCha_r(WhatWord+#0);
       while pc^<>#0 do
         begin
           if not(pc^ in ['a'..'z', 'A'..'Z']{, '0'..'9', '_', '-']}) then
@@ -221,7 +233,7 @@ procedure TWordList.LoadFromStream(const aStream: TStream);
 var
   count, aPos : Integer;
   Word        : AnsiString;
-  c           : AnsiChar;
+  c           : lwCha_r;
 begin
   FlushList;
   aPos := aStream.Position;
@@ -387,10 +399,10 @@ end;
 function TWordList.WordExists(const WhatWord: AnsiString; AllowPartial : Boolean): Boolean;
 var
   n  : PWordListSymbol;
-  pc : PAnsiChar;
+  pc : lwPCha_r;
 begin
   n  := fDict.Data;
-  pc := PAnsiChar(WhatWord+#0);
+  pc := lwPCha_r(WhatWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -453,7 +465,7 @@ begin
   inherited;
 end;
 
-function TWordListInfo.Add(WhatChar: AnsiChar; ParentNode: PWordListSymbol;
+function TWordListInfo.Add(WhatChar: lwCha_r; ParentNode: PWordListSymbol;
   IsEnd: Boolean): PWordListSymbol;
 begin
   WhatChar := UpCase(WhatChar);
@@ -472,7 +484,7 @@ begin
     end;
 end;
 
-function TWordListInfo.Exists(WhatChar: AnsiChar; ParentNode: PWordListSymbol;
+function TWordListInfo.Exists(WhatChar: lwCha_r; ParentNode: PWordListSymbol;
   out IsEnd: Boolean): Boolean;
 var
   n : PWordListSymbol;
@@ -484,11 +496,11 @@ begin
     IsEnd := n^.eow;
 end;
 
-function TWordListInfo.Exists(WhatChar: AnsiChar; ParentNode: PWordListSymbol
+function TWordListInfo.Exists(WhatChar: lwCha_r; ParentNode: PWordListSymbol
   ): PWordListSymbol;
 var
   f, l, j : Integer;
-  c : AnsiChar;
+  c : lwCha_r;
 begin
   result := nil;
   f := 0;

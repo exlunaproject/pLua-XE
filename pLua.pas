@@ -1,8 +1,16 @@
 unit pLua;
 
-(*
- * FD 2013 - Updated for XE3
- *)
+{
+  Copyright (c) 2007 Jeremy Darling
+  Modifications copyright (c) 2010-2014 Felipe Daragon
+  
+  License: MIT (http://opensource.org/licenses/mit-license.php)
+  Same as the original code by Jeremy Darling.
+  
+  Changes:
+  * 06.05.2013, FD - Added support for Delphi XE2 or higher.
+  * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
+}
 
 {$IFDEF FPC}
 {$mode objfpc}{$H+}
@@ -61,6 +69,13 @@ implementation
 
 uses
   Variants;
+  
+type
+{$IFDEF UNICODE}
+  lwPCha_r = PAnsiChar;
+{$ELSE}
+  lwPCha_r = PChar;
+{$ENDIF}
 
 function plua_tostring(L: PLua_State; Index: Integer): ansistring;
 var
@@ -74,7 +89,7 @@ end;
 
 procedure plua_pushstring(L: PLua_State; AString: AnsiString);
 begin
-  lua_pushstring(l, pansichar(AString));
+  lua_pushstring(l, lwPCha_r(AString));
 end;
 
 procedure plua_RegisterLuaTable(l: PLua_State; Name: AnsiString;
@@ -85,7 +100,7 @@ begin
   lua_gettable(l, TableIndex);
   if (lua_type(L, -1) <> LUA_TTABLE) then
     begin
-      lua_pushliteral(L, PansiChar(Name));
+      lua_pushliteral(L, lwPCha_r(Name));
       lua_newtable(L);
       tidx := lua_gettop(L);
       
@@ -156,7 +171,7 @@ begin
     varBoolean : lua_pushboolean(L, v);
     varStrArg,
     varOleStr,
-    varString,varUString  : plua_pushstring(L, v);  // FD: 06/05/2013, added unicode
+    varString{$IFDEF UNICODE},varUString{$ENDIF}  : plua_pushstring(L, v);  // FD: 06/05/2013, added unicode
     varDate    : plua_pushstring(L, DateTimeToStr(VarToDateTime(v)));
     varArray   : begin
                    h := VarArrayHighBound(v, 1);
@@ -313,7 +328,7 @@ begin
           plua_CopyTable(L, id, IdxTo);
         end;
       else
-        lua_pushliteral(l, PansiChar(key));
+        lua_pushliteral(l, lwPCha_r(key));
         lua_pushvalue(l, -2);
         lua_rawset(L, IdxTo);
       end;
@@ -324,7 +339,7 @@ end;
 procedure plua_RegisterMethod(l: Plua_State; aMethodName: AnsiString;
   MethodPtr: lua_CFunction; totable : Integer);
 begin
-  lua_pushliteral(l, PAnsiChar(aMethodName));
+  lua_pushliteral(l, lwPCha_r(aMethodName));
   lua_pushcfunction(l, MethodPtr);
   lua_settable(l, totable);
 end;
