@@ -7,3 +7,9 @@ pLua is a long term effort to build a set of methods (functions and procedures),
 ## License #
 
 pLua-XE is licensed under the MIT license. See [the LICENSE](https://github.com/felipedaragon/pLua-XE/blob/master/LICENSE) file for details.
+
+The original, unmodified code can be found [here](https://github.com/MageSlayer/pLua/tree/master).
+
+## See Also #
+
+* [pLua+](https://github.com/MageSlayer/pLua) - another pLua fork with LuaJIT support.
