@@ -316,7 +316,6 @@ procedure plua_CopyTable(L: Plua_State; IdxFrom, IdxTo: Integer);
 var
   id:Integer;
   key : AnsiString;
-  cf : lua_CFunction;
 begin
   lua_pushnil(L);
   while(lua_next(L, IdxFrom)<>0)do

@@ -457,7 +457,6 @@ procedure lua_getglobal(L : Plua_State; s : lwPCha_r);
 
 function lua_tostring(L : Plua_State; idx : Integer) : lwPCha_r;
 
-
 (*
 ** compatibility macros and functions
 *)
@@ -786,7 +785,6 @@ function lua_ref(L : Plua_State; lock : Boolean) : Integer;
 procedure lua_unref(L : Plua_State; ref : Integer);
 
 procedure lua_getref(L : Plua_State; ref : Integer);
-
 
 (******************************************************************************)
 (******************************************************************************)
