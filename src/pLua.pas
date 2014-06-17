@@ -8,6 +8,7 @@ unit pLua;
   Same as the original code by Jeremy Darling.
   
   Changes:
+  * 17.06.2014, FD - Added plua_dostring
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
   * 06.05.2013, FD - Added support for Delphi XE2 or higher.
 }
@@ -30,6 +31,8 @@ type
   PVariantArray =^TVariantArray;
   LuaException = class(Exception)
   end;
+
+procedure plua_dostring(L: PLua_State; AString: String);
 
 function  plua_tostring(L: PLua_State; Index: Integer): ansistring;
 procedure plua_pushstring(L: PLua_State; AString : AnsiString);
@@ -76,6 +79,12 @@ type
 {$ELSE}
   lwPCha_r = PChar;
 {$ENDIF}
+
+procedure plua_dostring(L: PLua_State; AString: String);
+begin
+ luaL_loadbuffer(L, lwPCha_r(ansistring(AString)), Length(ansistring(AString)), lwPCha_r(emptystr));
+ lua_pcall(L, 0, 0, 0);
+end;
 
 function plua_tostring(L: PLua_State; Index: Integer): ansistring;
 var
