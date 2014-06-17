@@ -8,7 +8,7 @@ unit Lua;
   License: same as Lua 5.1 (license at the end of this file).
   
   Changes:
-  * 17.06.2014, FD - Added overloaded lua_pushliteral.
+  * 17.06.2014, FD - Added overloaded lua_pushliteral and lua_setfield.
   * 16.06.2014, FD - Added overload for lua_pushstring and lua_register;
   lua_tostring now returns string.
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
@@ -358,7 +358,8 @@ procedure lua_getfenv(L : Plua_State; idx : Integer);
 procedure lua_settable(L : Plua_State; idx : Integer);
   cdecl; external LuaDLL;
 procedure lua_setfield(L : Plua_State; idx : Integer; const k : lwPCha_r);
-  cdecl; external LuaDLL;
+  cdecl; external LuaDLL; overload;
+procedure lua_setfield(L : Plua_State; idx : Integer; const k : string); overload;
 procedure lua_rawset(L : Plua_State; idx : Integer);
   cdecl; external LuaDLL;
 procedure lua_rawseti(L : Plua_State; idx , n: Integer);
@@ -1087,6 +1088,11 @@ end;
 procedure lua_register(L : Plua_State; n : string; f : lua_CFunction);
 begin
   lua_register(L, lwPCha_r(ansistring(string(n))), f);
+end;
+
+procedure lua_setfield(L : Plua_State; idx : Integer; const k : string); overload;
+begin
+  lua_setfield(L, idx, lwPCha_r(ansistring(string(k))));
 end;
 
 
