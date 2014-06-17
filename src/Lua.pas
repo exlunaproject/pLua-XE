@@ -8,9 +8,11 @@ unit Lua;
   License: same as Lua 5.1 (license at the end of this file).
   
   Changes:
-  * 06.05.2013, FD - Added support for Delphi XE2 or higher.
+  * 16.06.2014, FD - Added overload for lua_pushstring and lua_register;
+  lua_tostring now returns string.
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
   releases.
+  * 06.05.2013, FD - Added support for Delphi XE2 or higher.
 }
 
 interface
@@ -310,8 +312,9 @@ procedure lua_pushinteger(L : Plua_State; n : lua_Integer);
   cdecl; external LuaDLL;
 procedure lua_pushlstring(L : Plua_State; const s : lwPCha_r; ls : size_t);
   cdecl; external LuaDLL;
-procedure lua_pushstring(L : Plua_State; const s : lwPCha_r);
+procedure lua_pushstring(L : Plua_State; const s : lwPCha_r); overload;
   cdecl; external LuaDLL;
+procedure lua_pushstring(L: PLua_State; const s : string); overload;
 function  lua_pushvfstring(L : Plua_State;
                            const fmt : lwPCha_r; argp : Pointer) : lwPCha_r;
   cdecl; external LuaDLL;
@@ -435,7 +438,8 @@ procedure lua_pop(L : Plua_State; n : Integer);
 
 procedure lua_newtable(L : Plua_State);
 
-procedure lua_register(L : Plua_State; n : lwPCha_r; f : lua_CFunction);
+procedure lua_register(L : Plua_State; n : lwPCha_r; f : lua_CFunction); overload;
+procedure lua_register(L : Plua_State; n : string; f : lua_CFunction); overload;
 
 procedure lua_pushcfunction(L : Plua_State; f : lua_CFunction);
 
@@ -455,7 +459,8 @@ procedure lua_pushliteral(L : Plua_State; s : lwPCha_r);
 procedure lua_setglobal(L : Plua_State; s : lwPCha_r);
 procedure lua_getglobal(L : Plua_State; s : lwPCha_r);
 
-function lua_tostring(L : Plua_State; idx : Integer) : lwPCha_r;
+function lua_tostring(L : Plua_State; idx : Integer) : string;
+function lua_tostringP(L : Plua_State; idx : Integer) : lwPCha_r;
 
 (*
 ** compatibility macros and functions
@@ -908,9 +913,14 @@ begin
   lua_getfield(L, LUA_GLOBALSINDEX, s);
 end;
 
-function lua_tostring(L : Plua_State; idx : Integer) : lwPCha_r;
+function lua_tostringP(L : Plua_State; idx : Integer) : lwPCha_r;
 begin
-  lua_tostring := lua_tolstring(L, idx, nil);
+  lua_tostringP := lua_tolstring(L, idx, nil);
+end;
+
+function lua_tostring(L : Plua_State; idx : Integer) : string;
+begin
+ result:=string(lua_tolstring(L, idx, nil));
 end;
 
 function lua_open : Plua_State;
@@ -1060,6 +1070,16 @@ end;
 procedure lua_getref(L : Plua_State; ref : Integer);
 begin
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+end;
+
+procedure lua_pushstring(L: PLua_State; const s : string);
+begin
+  lua_pushstring(L, lwPCha_r(ansistring(string(s))));
+end;
+
+procedure lua_register(L : Plua_State; n : string; f : lua_CFunction);
+begin
+  lua_register(L, lwPCha_r(ansistring(string(n))), f);
 end;
 
 

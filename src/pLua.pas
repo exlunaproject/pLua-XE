@@ -8,8 +8,8 @@ unit pLua;
   Same as the original code by Jeremy Darling.
   
   Changes:
-  * 06.05.2013, FD - Added support for Delphi XE2 or higher.
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
+  * 06.05.2013, FD - Added support for Delphi XE2 or higher.
 }
 
 {$IFDEF FPC}
@@ -84,7 +84,7 @@ begin
   Size := lua_strlen(L, Index);
   SetLength(Result, Size);
   if (Size > 0) then
-    Move(lua_tostring(L, Index)^, Result[1], Size);
+    Move(lua_tostringP(L, Index)^, Result[1], Size);
 end;
 
 procedure plua_pushstring(L: PLua_State; AString: AnsiString);
