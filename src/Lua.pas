@@ -8,6 +8,7 @@ unit Lua;
   License: same as Lua 5.1 (license at the end of this file).
   
   Changes:
+  * 17.06.2014, FD - Added overloaded lua_pushliteral.
   * 16.06.2014, FD - Added overload for lua_pushstring and lua_register;
   lua_tostring now returns string.
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
@@ -454,7 +455,8 @@ function lua_isthread(L : Plua_State; n : Integer) : Boolean;
 function lua_isnone(L : Plua_State; n : Integer) : Boolean;
 function lua_isnoneornil(L : Plua_State; n : Integer) : Boolean;
 
-procedure lua_pushliteral(L : Plua_State; s : lwPCha_r);
+procedure lua_pushliteral(L : Plua_State; s : string); overload;
+procedure lua_pushliteral(L : Plua_State; s : lwPCha_r); overload;
 
 procedure lua_setglobal(L : Plua_State; s : lwPCha_r);
 procedure lua_getglobal(L : Plua_State; s : lwPCha_r);
@@ -1075,6 +1077,11 @@ end;
 procedure lua_pushstring(L: PLua_State; const s : string);
 begin
   lua_pushstring(L, lwPCha_r(ansistring(string(s))));
+end;
+
+procedure lua_pushliteral(L : Plua_State; s : string);
+begin
+  lua_pushliteral(L, lwPCha_r(ansistring(string(s))));
 end;
 
 procedure lua_register(L : Plua_State; n : string; f : lua_CFunction);
