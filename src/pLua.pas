@@ -159,7 +159,7 @@ begin
     begin
       msg := plua_tostring(l, -1);
       lua_pop(l, 1);
-      raise LuaException.create(msg);
+      raise LuaException.create(string(msg));
     end;
   result := lua_gettop(l) - offset;
   if (Results<>Nil) then
@@ -180,8 +180,8 @@ begin
     varBoolean : lua_pushboolean(L, v);
     varStrArg,
     varOleStr,
-    varString{$IFDEF UNICODE},varUString{$ENDIF}  : plua_pushstring(L, v);  // FD: 06/05/2013, added unicode
-    varDate    : plua_pushstring(L, DateTimeToStr(VarToDateTime(v)));
+    varString{$IFDEF UNICODE},varUString{$ENDIF}  : plua_pushstring(L, AnsiString(v));  // FD: 06/05/2013, added unicode
+    varDate    : plua_pushstring(L, ansistring(DateTimeToStr(VarToDateTime(v))));
     varArray   : begin
                    h := VarArrayHighBound(v, 1);
                    lua_newtable(L);
@@ -213,7 +213,7 @@ begin
     begin
       SetLength(va, cnt+1);
       if assigned(Keys) then
-        Keys.Add(plua_tostring(L, -2));
+        Keys.Add(string(plua_tostring(L, -2)));
       va[cnt] := plua_tovariant(l, -1);
       lua_pop(L, 1);
       inc(cnt);
@@ -297,7 +297,7 @@ var
 begin
   Title := '';
   Line := 0;
-  Msg := ErrMsg;
+  Msg := ansistring(ErrMsg);
   Find := False;
   I := 1 - 1;
   Stop := 0;
@@ -315,10 +315,10 @@ begin
     if (S(I) = ':') then
       Find := True;
   until (Find);
-  Title := Copy(ErrMsg, 1, Start - 1);
+  Title := ansistring(Copy(ErrMsg, 1, Start - 1));
   LS := Copy(ErrMsg, Start + 1, Stop - Start - 1);
   Line := StrToIntDef(LS, 0);
-  Msg := Copy(ErrMsg, Stop + 1, Length(ErrMsg));
+  Msg := ansistring(Copy(ErrMsg, Stop + 1, Length(ErrMsg)));
 end;
 
 procedure plua_CopyTable(L: Plua_State; IdxFrom, IdxTo: Integer);

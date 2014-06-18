@@ -201,7 +201,7 @@ var
   pc : lwPCha_r;
 begin
   result := false;
-  if length(trim(WhatWord)) > 0 then
+  if length(trim(string(WhatWord))) > 0 then
     begin
       result := true;
       pc := lwPCha_r(WhatWord+#0);
@@ -282,7 +282,7 @@ procedure TWordList.LoadFromFile(const WhatFile: AnsiString);
 var
   fs : TFileStream;
 begin
-  fs := TFileStream.Create(WhatFile, fmOpenRead);
+  fs := TFileStream.Create(string(WhatFile), fmOpenRead);
   try
     LoadFromStream(fs);
   finally
@@ -294,7 +294,7 @@ procedure TWordList.SaveToFile(const WhatFile: AnsiString);
 var
   fs : TFileStream;
 begin
-  fs := TFileStream.Create(WhatFile, fmCreate);
+  fs := TFileStream.Create(string(WhatFile), fmCreate);
   try
     SaveToStream(fs);
   finally
@@ -318,8 +318,8 @@ var
       bAdd := length(WhatStr) >= MinCharacters;
     if (MaxCharacters > -1) then
       bAdd := bAdd and (length(WhatStr) <= MaxCharacters);
-    if bAdd and (List.IndexOf(WhatStr)=-1) then
-      List.Add(WhatStr);
+    if bAdd and (List.IndexOf(string(WhatStr))=-1) then
+      List.Add(string(WhatStr));
   end;
   procedure TestThis(Base, Letters : AnsiString; Node : PWordListSymbol);
   var
@@ -388,7 +388,7 @@ var
   aw : AnsiString;
 begin
   //result := nil;
-  aw := Trim(WhatWord)+#0;
+  aw := ansistring(Trim(string(WhatWord)))+#0;
   {if not WordValid(aw) then
     exit;
   if not WordExists(aw) then}

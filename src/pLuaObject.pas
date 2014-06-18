@@ -81,7 +81,7 @@ type
     function  IndexOf(aClassName : AnsiString) : Integer;
     procedure Clear;
     property  Count : integer read GetCount;
-    property  ClassInfo[index : integer]:PLuaClassInfo read GetClassInfo; default;
+    property  LClassInfo[index : integer]:PLuaClassInfo read GetClassInfo; default;
   end;
 
   { TLuaObjectEventDelegate }
@@ -397,7 +397,7 @@ begin
   lua_pushinteger(L, lidx);
   lua_rawset(L, tidx);
   lua_pushstring(L, '__classPTR');
-  ci := LuaClasses.ClassInfo[lidx];
+  ci := LuaClasses.LClassInfo[lidx];
   lua_pushinteger(L, PtrInt(ci));
   lua_rawset(L, tidx);
 
@@ -753,7 +753,7 @@ begin
       result := fItems.Add(ci);
     end
   else
-    ci := ClassInfo[result];
+    ci := LClassInfo[result];
   ci^ := aClassInfo;
 end;
 
@@ -765,7 +765,7 @@ begin
   idx := IndexOf(aClassName);
   if idx > -1 then
     begin
-      ci := ClassInfo[idx];
+      ci := LClassInfo[idx];
       fItems.Delete(idx);
       Freemem(ci);
     end;
@@ -779,7 +779,7 @@ begin
   i := 0;
   while (result = -1) and (i < count) do
     begin
-      if CompareText(string(aClassName), string(ClassInfo[i]^.ClassName)) = 0 then
+      if CompareText(string(aClassName), string(LClassInfo[i]^.ClassName)) = 0 then
         result := i;
       inc(i);
     end;
@@ -791,7 +791,7 @@ var
 begin
   while count > 0 do
     begin
-      ci := ClassInfo[count-1];
+      ci := LClassInfo[count-1];
       fItems.Delete(count-1);
       Freemem(ci);
     end;
