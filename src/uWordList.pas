@@ -231,7 +231,7 @@ end;
 
 procedure TWordList.LoadFromStream(const aStream: TStream);
 var
-  count, aPos : Integer;
+  aPos        : Integer;
   Word        : AnsiString;
   c           : lwCha_r;
 begin
@@ -323,7 +323,6 @@ var
   end;
   procedure TestThis(Base, Letters : AnsiString; Node : PWordListSymbol);
   var
-    eow : Boolean;
     j    : Integer;
     tn   : PWordListSymbol;
     ts   : AnsiString;
@@ -388,7 +387,7 @@ function TWordList.AddWord(const WhatWord: AnsiString) : PWordListSymbol;
 var
   aw : AnsiString;
 begin
-  result := nil;
+  //result := nil;
   aw := Trim(WhatWord)+#0;
   {if not WordValid(aw) then
     exit;

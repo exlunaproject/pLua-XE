@@ -279,8 +279,7 @@ end;
 
 function plua_new_class(l : PLua_State) : integer; cdecl;
 var
-  i, n, tidx, midx, classID,
-  oidx    : Integer;
+  i, n, tidx, oidx    : Integer;
   classPTR: Pointer;
   cInfo   : PLuaClassInfo;
   instance: PLuaInstanceInfo;
@@ -364,7 +363,7 @@ end;
 
 procedure plua_registerclass(l: PLua_State; classInfo: TLuaClassInfo);
 var
-  lidx, tidx, midx, i : integer;
+  lidx, tidx, midx: integer;
   ci   : PLuaClassInfo;
 begin
   lidx := LuaClasses.Add(classInfo);
@@ -476,7 +475,7 @@ end;
 
 function plua_getObjectInfo(l: PLua_State; idx: Integer): PLuaInstanceInfo;
 begin
-  result := nil;
+  //result := nil;
   plua_pushstring(l, '__instance');
   lua_rawget(l, plua_absindex(l, idx));
   result := PLuaInstanceInfo(ptrint(lua_tointeger(l, -1)));
@@ -487,9 +486,7 @@ function plua_registerExisting(l: PLua_State; InstanceName: AnsiString;
   ObjectInstance: TObject; classInfo: PLuaClassInfo;
   FreeOnGC : Boolean = false) : PLuaInstanceInfo;
 var
-  i, n, tidx, midx, classID,
-  oidx    : Integer;
-  classPTR: Pointer;
+  i, oidx    : Integer;
   cInfo   : PLuaClassInfo;
   instance: PLuaInstanceInfo;
 begin
@@ -546,9 +543,7 @@ end;
 function plua_pushexisting(l: PLua_State; ObjectInstance: TObject;
   classInfo: PLuaClassInfo; FreeOnGC: Boolean): PLuaInstanceInfo;
 var
-  i, n, tidx, midx, classID,
-  oidx    : Integer;
-  classPTR: Pointer;
+  i, oidx    : Integer;
   cInfo   : PLuaClassInfo;
   instance: PLuaInstanceInfo;
 begin
@@ -613,8 +608,6 @@ end;
 
 function plua_ObjectEventExists(ObjectInfo: PLuaInstanceInfo;
   EventName: AnsiString): Boolean;
-var
-  idx : Integer;
 begin
   plua_PushObject(ObjectInfo);
   result := plua_functionexists(ObjectInfo^.l, EventName, lua_gettop(ObjectInfo^.l));
