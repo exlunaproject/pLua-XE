@@ -84,7 +84,7 @@ procedure RegisterClassTLuaObject(L : Plua_State);
 implementation
 
 uses
-  typinfo;
+  typinfo, types;
 
 const
   LuaTLuaObjectClassName = 'TLuaObject';

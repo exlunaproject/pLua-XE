@@ -173,7 +173,7 @@ var
 implementation
 
 uses
-  typinfo;
+  typinfo, types;
 
 var
   LuaObjects : TList;
@@ -189,7 +189,7 @@ function plua_gc_class(l : PLua_State) : integer; cdecl; forward;
 
 function plua_index_class(l : PLua_State) : integer; cdecl;
 var
-  propName : AnsiString;
+  propName : String;
   propValueStart : Integer;
   obj      : TObject;
   cInfo    : PLuaInstanceInfo;
@@ -207,9 +207,9 @@ begin
     exit;
   obj := cInfo^.obj;
 
-  propName := plua_tostring(l, 2);
+  propName := string(plua_tostring(l, 2));
   propValueStart := 3;
-  reader := LuaClasses.GetPropReader(cInfo^.ClassInfo, propName);
+  reader := LuaClasses.GetPropReader(cInfo^.ClassInfo, ansistring(propName));
   if assigned(reader) then
     result := reader(obj, l, propValueStart, pcount)
   else
@@ -270,7 +270,6 @@ var
 begin
   result := 0;
   pcount := lua_gettop(l);
-  result := 0;
   obj := plua_getObject(l, 1);
   method := plua_MethodWrapper(PtrInt(lua_tointeger(l, lua_upvalueindex(1))));
 
@@ -344,6 +343,7 @@ var
   nfo : PLuaInstanceInfo;
   d   : TLuaObjectEventDelegate;
 begin
+  result := 0;
   nfo := plua_getObjectInfo(l, 1);
   if not assigned(nfo) then
     exit;
@@ -360,7 +360,6 @@ begin
     end;
   luaL_unref(L, LUA_REGISTRYINDEX, nfo^.LuaRef);
   freemem(nfo);
-  result := 0;
 end;
 
 procedure plua_registerclass(l: PLua_State; classInfo: TLuaClassInfo);
@@ -500,6 +499,7 @@ begin
       plua_pushstring(l, InstanceName);
       plua_PushObject(instance);
       lua_settable(l, LUA_GLOBALSINDEX);
+      result := instance;
       exit;
     end;
 
@@ -556,6 +556,7 @@ begin
   if assigned(instance) then
     begin
       plua_PushObject(instance);
+      result := instance;
       exit;
     end;
     
@@ -785,7 +786,7 @@ begin
   i := 0;
   while (result = -1) and (i < count) do
     begin
-      if CompareText(aClassName, ClassInfo[i]^.ClassName) = 0 then
+      if CompareText(string(aClassName), string(ClassInfo[i]^.ClassName)) = 0 then
         result := i;
       inc(i);
     end;

@@ -82,7 +82,7 @@ type
 
 procedure plua_dostring(L: PLua_State; AString: String);
 begin
- luaL_loadbuffer(L, lwPCha_r(ansistring(AString)), Length(ansistring(AString)), lwPCha_r(emptystr));
+ luaL_loadbuffer(L, lwPCha_r(ansistring(AString)), Length(ansistring(AString)), lwPCha_r(ansistring(emptystr)));
  lua_pcall(L, 0, 0, 0);
 end;
 
