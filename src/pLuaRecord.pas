@@ -14,7 +14,7 @@ unit pLuaRecord;
 interface
 
 uses
-  Classes, SysUtils, lua, pLua, uWordList, pLuaObject;
+  Classes, SysUtils, lua, pLua, uWordList, pLuaObject, Types;
   
 type
   PLuaRecordInfo = ^TLuaRecordInfo;
@@ -146,7 +146,6 @@ var
   rec      : pointer;
   rInfo    : PLuaRecordInstanceInfo;
   reader   : plua_RecordPropertyReader;
-  bReadOnly: Boolean;
   pcount   : Integer;
 begin
   result := 0;
@@ -204,8 +203,7 @@ end;
 
 function plua_new_record(l : PLua_State) : integer; cdecl;
 var
-  i, n, tidx, midx, recordID,
-  oidx    : Integer;
+  n, tidx, oidx    : Integer;
   recordPTR: Pointer;
   rInfo   : PLuarecordInfo;
   instance: PLuaRecordInstanceInfo;
@@ -255,6 +253,7 @@ function plua_gc_record(l : PLua_State) : integer; cdecl;
 var
   nfo : PLuaRecordInstanceInfo;
 begin
+  result := 0;
   nfo := plua_GetRecordInfo(l, 1);
   if not assigned(nfo) then
     exit;
@@ -266,12 +265,11 @@ begin
     end;
   luaL_unref(L, LUA_REGISTRYINDEX, nfo^.LuaRef);
   freemem(nfo);
-  result := 0;
 end;
 
 procedure plua_registerRecordType(l: PLua_State; RecordInfo: TLuaRecordInfo);
 var
-  lidx, tidx, midx, i : integer;
+  lidx, tidx, midx: integer;
   ci   : PLuaRecordInfo;
 begin
   lidx := LuaRecords.Add(RecordInfo);
@@ -344,7 +342,6 @@ function plua_registerExistingRecord(l: PLua_State; InstanceName: AnsiString;
   RecordPointer: Pointer; RecordInfo: PLuaRecordInfo; FreeOnGC: Boolean
   ): PLuaRecordInstanceInfo;
 var
-  i, n, tidx, midx, classID,
   oidx    : Integer;
   rInfo   : PLuaRecordInfo;
   instance: PLuaRecordInstanceInfo;
@@ -390,9 +387,7 @@ end;
 function plua_pushexisting(l: PLua_State; RecordPointer: Pointer;
   RecordInfo: PLuaRecordInfo; FreeOnGC: Boolean): PLuaRecordInstanceInfo;
 var
-  i, n, tidx, midx, classID,
   oidx    : Integer;
-  recPTR  : Pointer;
   rInfo   : PLuaRecordInfo;
   instance: PLuaRecordInstanceInfo;
 begin
@@ -400,6 +395,7 @@ begin
   if assigned(instance) then
     begin
       plua_PushRecord(instance);
+      result := instance;
       exit;
     end;
 
@@ -461,7 +457,7 @@ end;
 function plua_getRecordInfo(l: PLua_State; idx: Integer
   ): PLuaRecordInstanceInfo;
 begin
-  result := nil;
+  //result := nil;
   plua_pushstring(l, '__instance');
   lua_rawget(l, plua_absindex(l, idx));
   result := PLuaRecordInstanceInfo(ptrint(lua_tointeger(l, -1)));
@@ -475,7 +471,7 @@ end;
 
 function plua_GetRecordInfo(l : PLua_State; RecordPointer: Pointer): PLuaRecordInstanceInfo;
 begin
-  LuaRecords.GetInfo(l, RecordPointer);
+  result := LuaRecords.GetInfo(l, RecordPointer);
 end;
 
 procedure plua_PushRecordToTable(L: PLua_State; RecordPointer: Pointer;
@@ -622,7 +618,7 @@ begin
   i := 0;
   while (result = -1) and (i < count) do
     begin
-      if CompareText(aRecordName, RecordInfo[i]^.RecordName) = 0 then
+      if CompareText(string(aRecordName), string(RecordInfo[i]^.RecordName)) = 0 then
         result := i;
       inc(i);
     end;
