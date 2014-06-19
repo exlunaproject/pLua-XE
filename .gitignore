@@ -1,5 +1,11 @@
 __history/
 *.dcu
-*.~pas
+*.exe
+*.bat
+*.dll
 *.~*
+*.dproj
+*.local
+*.dproj.local
+*.identcache
 Thumbs.db
