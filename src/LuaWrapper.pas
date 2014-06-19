@@ -7,6 +7,7 @@ unit LuaWrapper;
   License: MIT (http://opensource.org/licenses/mit-license.php)
   
   Changes:
+  * 19.06.2014, FD - Changed to work with string instead of ansistring.
   * 16.05.2010, FD - Added LocateCall & Push.
   * 06.05.2013, FD - Added support for Delphi XE2 or higher.
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
@@ -22,14 +23,12 @@ interface
 {$DEFINE TLuaHandlersAsIsObjectType}
 
 uses
-  Classes,
-  lua,
-  pLua;
+  Classes, SysUtils, Variants, Types, Lua, pLua;
 
 type
   TLua = class;
 
-  TLuaOnException = procedure( Title: ansistring; Line: Integer; Msg: ansistring;
+  TLuaOnException = procedure( Title: string; Line: Integer; Msg: string;
                                var handled : Boolean) {$IFDEF TLuaHandlersAsIsObjectType}of object{$ENDIF};
   TLuaOnLoadLibs  = procedure( LuaWrapper : TLua ) {$IFDEF TLuaHandlersAsIsObjectType}of object{$ENDIF};
   
@@ -39,24 +38,24 @@ type
     FOnException: TLuaOnException;
     FOnLoadLibs: TLuaOnLoadLibs;
     FUseDebug: Boolean;
-    L : Plua_State;
-    FScript,
-    FLibFile,
-    FLibName: AnsiString;
+    FScript: String;
+    FLibFile: String;
+    FLibName: String;
     FMethods : TStringList;
-    function  GetLuaCPath: AnsiString;
-    function  GetLuaPath: AnsiString;
-    function  GetValue(valName : AnsiString): Variant;
-    procedure SetLibName(const Value: AnsiString);
-    procedure SetLuaCPath(const AValue: AnsiString);
-    procedure SetLuaPath(const AValue: AnsiString);
+    L : Plua_State;
+    function  GetLuaCPath: String;
+    function  GetLuaPath: String;
+    function  GetValue(valName : String): Variant;
+    procedure SetLibName(const Value: String);
+    procedure SetLuaCPath(const AValue: String);
+    procedure SetLuaPath(const AValue: String);
     procedure OpenLibs;
     procedure SetOnException(const AValue: TLuaOnException);
     procedure SetOnLoadLibs(const AValue: TLuaOnLoadLibs);
     procedure SetUseDebug(const AValue: Boolean);
     procedure ErrorTest(errCode : Integer);
     procedure HandleException(E : LuaException);
-    procedure SetValue(valName : AnsiString; const AValue: Variant);
+    procedure SetValue(valName : String; const AValue: Variant);
   public
     constructor Create{$IFDEF TLuaAsComponent}(anOwner : TComponent); override {$ENDIF};
     //{$IFDEF TLuaAsComponent}constructor Create; {$ENDIF}
@@ -65,31 +64,31 @@ type
     procedure Close;
     procedure Open;
 
-    procedure LoadScript(Script : AnsiString);
-    procedure LoadFile(FileName:AnsiString);
+    procedure LoadScript(Script : String);
+    procedure LoadFile(FileName: String);
     procedure Execute;
-    procedure ExecuteCmd(Script:AnsiString);
-    procedure ExecuteFile(FileName : AnsiString);
-    procedure RegisterLuaMethod(aMethodName: AnsiString; Func: lua_CFunction);
-    procedure RegisterLuaTable(PropName: AnsiString; reader: lua_CFunction; writer : lua_CFunction = nil);
-    function  FunctionExists(aMethodName:AnsiString) : Boolean;
-    function  CallFunction( FunctionName :AnsiString; const Args: array of Variant;
+    procedure ExecuteCmd(Script:String);
+    procedure ExecuteFile(FileName : String);
+    procedure RegisterLuaMethod(aMethodName: String; Func: lua_CFunction);
+    procedure RegisterLuaTable(PropName: String; reader: lua_CFunction; writer : lua_CFunction = nil);
+    function  FunctionExists(aMethodName: String) : Boolean;
+    function  CallFunction( FunctionName : String; const Args: array of Variant;
                             Results : PVariantArray = nil):Integer;
-    function  TableFunctionExists(TableName, FunctionName : AnsiString; out tblidx : Integer) : Boolean; overload;
-    function  TableFunctionExists(TableName, FunctionName : AnsiString) : Boolean; overload;
-    function  CallTableFunction( TableName, FunctionName :AnsiString;
+    function  TableFunctionExists(TableName, FunctionName : String; out tblidx : Integer) : Boolean; overload;
+    function  TableFunctionExists(TableName, FunctionName : String) : Boolean; overload;
+    function  CallTableFunction( TableName, FunctionName : String;
                                const Args: array of Variant;
                                Results : PVariantArray = nil):Integer;
                                
-    procedure LocateCall(const AMethod:String); // FD: 16/05/2010, added
-    procedure Push(AParam:Variant); // FD: 16/05/2010, added
+    procedure LocateCall(const AMethod:String);
+    procedure Push(AParam:Variant);
 
-    property LibName  : AnsiString read FLibName write SetLibName;
+    property LibName  : String read FLibName write SetLibName;
     property LuaState : Plua_State read L write L; // FD: 16/05/2010, added write
-    property LuaPath  : AnsiString read GetLuaPath write SetLuaPath;
-    property LuaCPath : AnsiString read GetLuaCPath write SetLuaCPath;
+    property LuaPath  : String read GetLuaPath write SetLuaPath;
+    property LuaCPath : String read GetLuaCPath write SetLuaCPath;
     property UseDebug : Boolean read FUseDebug write SetUseDebug;
-    property Value[valName : AnsiString] : Variant read GetValue write SetValue; default;
+    property Value[valName : String] : Variant read GetValue write SetValue; default;
     property OnException : TLuaOnException read FOnException write SetOnException;
     property OnLoadLibs : TLuaOnLoadLibs read FOnLoadLibs write SetOnLoadLibs;
   end;
@@ -98,24 +97,23 @@ type
   TLUAThread=class
   private
     FMaster : TLUA;
-    FMethodName: AnsiString;
-    FTableName: AnsiString;
+    FMethodName: String;
+    FTableName: String;
     L : PLua_State;
-    FThreadName : AnsiString;
+    FThreadName : String;
     function GetIsValid: Boolean;
   public
-    constructor Create(LUAInstance: TLUA; ThreadName : AnsiString);
+    constructor Create(LUAInstance: TLUA; ThreadName : String);
     destructor Destroy; override;
 
-    function Start(TableName : AnsiString; AMethodName : AnsiString; const ArgNames: array of AnsiString; var ErrorString : AnsiString) : Boolean;
-    function Resume(EllapsedTime : lua_Number; Args : array of Variant; var ErrorString : AnsiString) : Boolean;
+    function Start(TableName : String; AMethodName : String; const ArgNames: array of String; var ErrorString : String) : Boolean;
+    function Resume(EllapsedTime : lua_Number; Args : array of Variant; var ErrorString : String) : Boolean;
 
     property LuaState : Plua_State read L;
-  published
     property IsValid : Boolean read GetIsValid;
-    property ThreadName : AnsiString read FThreadName;
-    property MethodName : AnsiString read FMethodName;
-    property TableName  : AnsiString read FTableName;
+    property ThreadName : String read FThreadName;
+    //property MethodName : String read FMethodName;
+    property TableName  : String read FTableName;
   end;
 
   { TLUAThreadList }
@@ -129,24 +127,20 @@ type
     constructor Create(LUAInstance: TLUA);
     destructor Destroy; override;
 
-    procedure Process(EllapsedTime : lua_Number; Args : array of Variant; var ErrorString : AnsiString);
+    procedure Process(EllapsedTime : lua_Number; Args : array of Variant; var ErrorString : String);
 
-    function SpinUp(TableName, AMethodName, ThreadName : AnsiString; var ErrorString : AnsiString) : Boolean;
-    function IndexOf(ThreadName : AnsiString): Integer;
+    function SpinUp(TableName, AMethodName, ThreadName : String; var ErrorString : String) : Boolean;
+    function IndexOf(ThreadName : String): Integer;
     procedure Release(ThreadIndex : Integer);
 
     property Thread[index:integer]: TLUAThread read GetThread;
-  published
     property Count : Integer read GetCount;
   end;
 
 implementation
 
 uses
-  Variants,
-  SysUtils,
-  pLuaObject,
-  pLuaRecord;
+  pLuaObject, pLuaRecord;
  
 constructor TLUA.Create{$IFDEF TLuaAsComponent}(anOwner: TComponent){$ENDIF};
 begin
@@ -163,12 +157,12 @@ begin
   inherited;
 end;
 
-procedure TLUA.LocateCall(const AMethod:String); // FD: 16/05/2010, added
+procedure TLUA.LocateCall(const AMethod:String);
 begin
   lua_getglobal(L,PAnsiChar(AnsiString(AMethod)));
 end;
 
-procedure TLUA.Push(AParam:Variant); // FD: 16/05/2010, added
+procedure TLUA.Push(AParam:Variant);
 var AText:String;
 begin
   case VarType(AParam) of
@@ -181,11 +175,11 @@ begin
                lua_pushstring(L,AText);
              end;
     varOLEStr:begin
-                AText:=UTF8EnCode(VarToWideStr(AParam));
+                AText:=string(UTF8EnCode(VarToWideStr(AParam)));
                 lua_pushstring(L,AText);
               end;
     varBoolean:lua_pushboolean(L,(AParam = True));
-    //else LastError:=letPush; // FD: 16/05/2010, ToDo, restore later
+    //else LastError:=letPush; // ToDo, restore later
   end;
 end;
 
@@ -193,33 +187,33 @@ procedure TLUA.Execute;
 begin
   if L = nil then
     Open;
-  if FScript <> '' then
-    ErrorTest(luaL_loadbuffer(L, PAnsiChar(FScript), length(FScript), PAnsiChar(LibName)))
+  if FScript <> EmptyStr then
+    ErrorTest(luaL_loadbuffer(L, PAnsiChar(ansistring(FScript)), length(ansistring(FScript)), PAnsiChar(AnsiString(LibName))))
   else
-    if FLibFile <> '' then
-      ErrorTest(luaL_loadfile(L, PAnsiChar(FLibFile)))
+    if FLibFile <> EmptyStr then
+      ErrorTest(luaL_loadfile(L, PAnsiChar(ansistring(FLibFile))))
     else
       exit;
   ErrorTest(lua_pcall(L, 0, 0, 0));
 end;
 
-procedure TLUA.ExecuteCmd(Script: AnsiString);
+procedure TLUA.ExecuteCmd(Script: String);
 begin
   if L= nil then
     Open;
-  ErrorTest(luaL_loadbuffer(L, PAnsiChar(Script), Length(Script), PAnsiChar(LibName)));
+  ErrorTest(luaL_loadbuffer(L, PAnsiChar(AnsiString(Script)), Length(AnsiString(Script)), PAnsiChar(AnsiString(LibName))));
   ErrorTest(lua_pcall(L, 0, 0, 0));
 end;
 
-procedure TLUA.ExecuteFile(FileName: AnsiString);
-var
-  Script : AnsiString;
-  sl     : TStringList;
+procedure TLUA.ExecuteFile(FileName: String);
+//var
+//  Script : String;
+//  sl     : TStringList;
 begin
   if L = nil then
     Open;
 
-  ErrorTest(luaL_loadfile(L, PAnsiChar(FileName)));
+  ErrorTest(luaL_loadfile(L, PAnsiChar(AnsiString(FileName))));
 {
   if L = nil then
     Open;
@@ -230,92 +224,92 @@ begin
   finally
     sl.Free;
   end;
-  ErrorTest(luaL_loadbuffer(L, PAnsiChar(Script), Length(Script), PAnsiChar(LibName)));   }
+  ErrorTest(luaL_loadbuffer(L, PAnsiChar(AnsiString(Script)), Length(AnsiString(Script)), PAnsiChar(AnsiString(LibName))));   }
   ErrorTest(lua_pcall(L, 0, 0, 0));
 end;
 
-procedure TLUA.SetLuaPath(const AValue: AnsiString);
+procedure TLUA.SetLuaPath(const AValue: String);
 begin
   lua_pushstring(L, 'package');
   lua_gettable(L, LUA_GLOBALSINDEX);
   lua_pushstring(L, 'path');
-  lua_pushstring(L, PAnsiChar(AValue));
+  lua_pushstring(L, AValue);
   lua_settable(L, -3);
 end;
 
-procedure TLUA.LoadFile(FileName: AnsiString);
+procedure TLUA.LoadFile(FileName: String);
 begin
   if L = nil then
     Open;
   FLibFile := FileName;
-  FScript := '';
-  luaL_loadfile(L, PAnsiChar(FileName));
+  FScript := EmptyStr;
+  luaL_loadfile(L, PAnsiChar(AnsiString(FileName)));
 end;
 
-procedure TLUA.LoadScript(Script: AnsiString);
+procedure TLUA.LoadScript(Script: String);
 begin
   if FScript <> Script then
     Close;
   if L = nil then
     Open;
   FScript := Trim(Script);
-  FLibFile := '';
-  if FScript <> '' then
-    luaL_loadbuffer(L, PAnsiChar(Script), length(Script), PAnsiChar(LibName));
+  FLibFile := EmptyStr;
+  if FScript <> EmptyStr then
+    luaL_loadbuffer(L, PAnsiChar(AnsiString(Script)), length(AnsiString(Script)), PAnsiChar(AnsiString(LibName)));
 end;
 
-function TLUA.FunctionExists(aMethodName: AnsiString): Boolean;
+function TLUA.FunctionExists(aMethodName: String): Boolean;
 begin
-  lua_pushstring(L, PAnsiChar(aMethodName));
+  lua_pushstring(L, aMethodName);
   lua_rawget(L, LUA_GLOBALSINDEX);
   result := (not lua_isnil(L, -1)) and lua_isfunction(L, -1);
   lua_pop(L, 1);
 end;
 
-procedure TLUA.RegisterLUAMethod(aMethodName: AnsiString; Func: lua_CFunction);
+procedure TLUA.RegisterLUAMethod(aMethodName: String; Func: lua_CFunction);
 begin
   if L = nil then
     Open;
-  lua_register(L, PAnsiChar(aMethodName), Func);
+  lua_register(L, aMethodName, Func);
   if FMethods.IndexOf(aMethodName) = -1 then
     FMethods.AddObject(aMethodName, TObject(@Func))
   else
     FMethods.Objects[FMethods.IndexOf(aMethodName)] := TObject(@Func);
 end;
 
-procedure TLUA.RegisterLuaTable(PropName: AnsiString; reader: lua_CFunction;
+procedure TLUA.RegisterLuaTable(PropName: String; reader: lua_CFunction;
   writer: lua_CFunction);
 begin
-  plua_RegisterLuaTable(l, PropName, reader, writer);
+  plua_RegisterLuaTable(l, ansistring(PropName), reader, writer);
 end;
 
-procedure TLUA.SetLibName(const Value: AnsiString);
+procedure TLUA.SetLibName(const Value: String);
 begin
   FLibName := Value;
 end;
 
-procedure TLUA.SetLuaCPath(const AValue: AnsiString);
+procedure TLUA.SetLuaCPath(const AValue: String);
 begin
   lua_pushstring(L, 'package');
   lua_gettable(L, LUA_GLOBALSINDEX);
   lua_pushstring(L, 'cpath');
-  lua_pushstring(L, PAnsiChar(AValue));
+  lua_pushstring(L, AValue);
   lua_settable(L, -3);
 end;
 
-function TLUA.GetLuaPath: AnsiString;
+function TLUA.GetLuaPath: String;
 begin
   lua_pushstring(L, 'package');
   lua_gettable(L, LUA_GLOBALSINDEX);
   lua_pushstring(L, 'path');
   lua_rawget(L, -2);
-  result := AnsiString(lua_tostring(L, -1));
+  result := lua_tostring(L, -1);
 end;
 
-function TLUA.GetValue(valName : AnsiString): Variant;
+function TLUA.GetValue(valName : String): Variant;
 begin
   result := NULL;
-  lua_pushstring(l, PAnsiChar(valName));
+  lua_pushstring(l, valName);
   lua_rawget(l, LUA_GLOBALSINDEX);
   try
     result := plua_tovariant(l, -1);
@@ -324,21 +318,22 @@ begin
   end;
 end;
 
-function TLUA.GetLuaCPath: AnsiString;
+function TLUA.GetLuaCPath: String;
 begin
   lua_pushstring(L, 'package');
   lua_gettable(L, LUA_GLOBALSINDEX);
   lua_pushstring(L, 'cpath');
   lua_rawget(L, -2);
-  result := AnsiString(lua_tostring(L, -1));
+  result := lua_tostring(L, -1);
 end;
 
-function TLUA.CallFunction(FunctionName: AnsiString;
+function TLUA.CallFunction(FunctionName: String;
   const Args: array of Variant; Results: PVariantArray = nil): Integer;
 begin
+  result := -1;
   try
     if FunctionExists(FunctionName) then
-      result := plua_callfunction(L, FunctionName, Args, Results)
+      result := plua_callfunction(L, AnsiString(FunctionName), Args, Results)
     else
       result := -1;
   except
@@ -396,7 +391,7 @@ begin
   if @FOnLoadLibs=@AValue then exit; // FD: 16/05/2010, changed to @AValue
   FOnLoadLibs:=AValue;
   //if (L <> nil) and (FOnLoadLibs <> nil) then
-  if (L <> nil) and (assigned(FOnLoadLibs)) then // FD: 16/05/2010, added assigned
+  if (L <> nil) and (assigned(FOnLoadLibs)) then
     FOnLoadLibs(self);
 end;
 
@@ -408,11 +403,11 @@ end;
 
 procedure TLUA.ErrorTest(errCode: Integer);
 var
-  msg : AnsiString;
+  msg : String;
 begin
   if errCode <> 0 then
     begin
-      msg := plua_tostring(l, -1);
+      msg := string(plua_tostring(l, -1));
       lua_pop(l, 1);
       HandleException(LuaException.Create(msg));
     end;
@@ -428,39 +423,40 @@ begin
   if assigned(FOnException) then
     begin
       plua_spliterrormessage(e.Message, title, line, msg);
-      FOnException(title, line, msg, handled);
+      FOnException(string(title), line, string(msg), handled);
     end;
   if not handled then
     raise E;
 end;
 
-procedure TLUA.SetValue(valName : AnsiString; const AValue: Variant);
+procedure TLUA.SetValue(valName : String; const AValue: Variant);
 begin
   if VarIsType(AValue, varString) then
     begin
-      lua_pushliteral(l, PAnsiChar(valName));
+      lua_pushliteral(l, valName);
       lua_pushstring(l, String(AValue));
       lua_settable(L, LUA_GLOBALSINDEX);
     end
   else
     begin
-      lua_pushliteral(l, PAnsiChar(valName));
+      lua_pushliteral(l, valName);
       plua_pushvariant(l, AValue);
       lua_settable(L, LUA_GLOBALSINDEX);
     end;
 end;
 
-function TLUA.CallTableFunction(TableName, FunctionName: AnsiString;
+function TLUA.CallTableFunction(TableName, FunctionName: String;
   const Args: array of Variant; Results: PVariantArray): Integer;
 var
   tblidx : integer;
 begin
+  result := -1;
   try
     if TableFunctionExists(TableName, FunctionName, tblidx) then
       begin
         lua_pushvalue(l, tblidx);
         tblidx := lua_gettop(l);
-        result := plua_callfunction(l, FunctionName, args, results, tblidx)
+        result := plua_callfunction(l, ansistring(FunctionName), args, results, tblidx)
       end
     else
       result := -1;
@@ -471,15 +467,15 @@ begin
 end;
 
 function TLUA.TableFunctionExists(TableName,
-  FunctionName: AnsiString; out tblidx : Integer): Boolean;
+  FunctionName: String; out tblidx : Integer): Boolean;
 begin
-  lua_pushstring(L, PAnsiChar(TableName));
+  lua_pushstring(L, TableName);
   lua_rawget(L, LUA_GLOBALSINDEX);
   result := lua_istable(L, -1);
   if result then
     begin
       tblidx := lua_gettop(L);
-      lua_pushstring(L, PAnsiChar(FunctionName));
+      lua_pushstring(L, FunctionName);
       lua_rawget(L, -2);
       result := lua_isfunction(L, -1);
       lua_pop(L, 1);
@@ -491,7 +487,7 @@ begin
     end;
 end;
 
-function TLUA.TableFunctionExists(TableName, FunctionName: AnsiString
+function TLUA.TableFunctionExists(TableName, FunctionName: String
   ): Boolean;
 var
   tblidx : Integer;
@@ -505,23 +501,23 @@ end;
 
 function TLUAThread.GetIsValid: Boolean;
 begin
-  lua_getglobal(L, PAnsiChar(FThreadName));
+  lua_getglobal(L, PAnsiChar(AnsiString(FThreadName)));
   result := not lua_isnil(L, 1);
   lua_pop(L, 1);
 end;
 
-constructor TLUAThread.Create(LUAInstance: TLUA; ThreadName: AnsiString);
+constructor TLUAThread.Create(LUAInstance: TLUA; ThreadName: String);
 begin
   L := lua_newthread(LUAInstance.LuaState);
   FThreadName := ThreadName;
-  lua_setglobal(LUAInstance.LuaState, PAnsiChar(ThreadName));
+  lua_setglobal(LUAInstance.LuaState, PAnsiChar(AnsiString(ThreadName)));
   FMaster := LUAInstance;
 end;
 
 destructor TLUAThread.Destroy;
 begin
   lua_pushnil(FMaster.LuaState);
-  lua_setglobal(FMaster.LuaState, PAnsiChar(FThreadName));
+  lua_setglobal(FMaster.LuaState, PAnsiChar(AnsiString(FThreadName)));
   inherited;
 end;
 
@@ -531,25 +527,25 @@ begin
   result := Res <> 0;
 end;
 
-function TLUAThread.Start(TableName : AnsiString; AMethodName : AnsiString; const ArgNames: array of AnsiString; var ErrorString : AnsiString) : Boolean;
+function TLUAThread.Start(TableName : String; AMethodName : String; const ArgNames: array of String; var ErrorString : String) : Boolean;
 var
   i,
   rres : Integer;
 begin
   FTableName := TableName;
   FMethodName := AMethodName;
-  if TableName <> '' then
+  if TableName <> EmptyStr then
     begin
-      lua_pushstring(L, PAnsiChar(TableName));
+      lua_pushstring(L, TableName);
       lua_gettable(L, LUA_GLOBALSINDEX);
-      plua_pushstring(L, PAnsiChar(AMethodName));
+      lua_pushstring(L, AMethodName);
       lua_rawget(L, -2);
     end
   else
-    lua_getglobal(L, PAnsiChar(AMethodName));
+    lua_getglobal(L, PAnsiChar(AnsiString(AMethodName)));
 
   for i := 0 to Length(ArgNames)-1 do
-    lua_getglobal(L, PAnsiChar(ArgNames[i]));
+    lua_getglobal(L, PAnsiChar(AnsiString(ArgNames[i])));
 
   if luaResume(L, Length(ArgNames), rres) then
     begin
@@ -561,11 +557,11 @@ begin
     result := true;
 end;
 
-function TLUAThread.Resume(EllapsedTime : lua_Number; Args : array of Variant; var ErrorString : AnsiString) : Boolean;
+function TLUAThread.Resume(EllapsedTime : lua_Number; Args : array of Variant; var ErrorString : String) : Boolean;
 var
   rres,
   i : Integer;
-  msg : AnsiString;
+  msg : String;
 begin
   lua_pushnumber(L, EllapsedTime);
   for i := 0 to Length(Args)-1 do
@@ -575,6 +571,8 @@ begin
       ErrorString := lua_tostring(L, -1);
       msg := 'Error ('+IntToStr(rres)+'): '+ErrorString;
       result := false;
+      if result=false then begin // hide weird H2077 compiler warning
+      end;
       raise exception.Create(msg);
     end
   else
@@ -614,7 +612,7 @@ begin
 end;
 
 procedure TLUAThreadList.Process(EllapsedTime: lua_Number; Args : array of Variant;
-  var ErrorString: AnsiString);
+  var ErrorString: String);
 var
   i : Integer;
 begin
@@ -628,7 +626,7 @@ begin
     end;
 end;
 
-function TLUAThreadList.SpinUp(TableName, AMethodName, ThreadName: AnsiString; var ErrorString : AnsiString) : Boolean;
+function TLUAThreadList.SpinUp(TableName, AMethodName, ThreadName: String; var ErrorString : String) : Boolean;
 var
   T : TLUAThread;
 begin
@@ -637,7 +635,7 @@ begin
   result := T.Start(TableName, AMethodName, [], ErrorString);
 end;
 
-function TLUAThreadList.IndexOf(ThreadName: AnsiString): Integer;
+function TLUAThreadList.IndexOf(ThreadName: String): Integer;
 var
   i : Integer;
 begin
