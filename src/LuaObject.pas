@@ -88,13 +88,6 @@ uses
 
 const
   LuaTLuaObjectClassName = 'TLuaObject';
-  
-type
-{$IFDEF UNICODE}
-  lwPCha_r = PAnsiChar;
-{$ELSE}
-  lwPCha_r = PChar;
-{$ENDIF}
 
 constructor TLuaObject.Create(LuaState : PLua_State; AParent : TLuaObject = nil);
 begin
@@ -267,7 +260,7 @@ begin
       lua_pop(L, 1);
     end
   else
-    luaL_error(L, lwPCha_r('Class table expected.'));
+    luaL_error(L, PAnsiChar('Class table expected.'));
 end;
 
 procedure PushTLuaObject(L: PLua_State; ObjectInstance: TLuaObject);

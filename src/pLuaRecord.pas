@@ -134,13 +134,6 @@ var
   
 implementation
 
-type
-{$IFDEF UNICODE}
-  lwPCha_r = PAnsiChar;
-{$ELSE}
-  lwPCha_r = PChar;
-{$ENDIF}
-
 var
   intLuaRecords : TList;
 
@@ -252,7 +245,7 @@ begin
   lua_pushcfunction(L, @plua_gc_record);
   lua_rawset(L, oidx);
 
-  luaL_getmetatable(l, lwPCha_r(rInfo^.recordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(rInfo^.recordName+'_mt'));
   lua_setmetatable(l, -2);
 
   result := 1;
@@ -286,11 +279,11 @@ begin
   plua_pushstring(l, RecordInfo.RecordName);
   lua_newtable(l);
 
-  luaL_newmetatable(l, lwPCha_r(RecordInfo.RecordName+'_mt'));
+  luaL_newmetatable(l, PAnsiChar(RecordInfo.RecordName+'_mt'));
   lua_setmetatable(l, -2);
   lua_settable(l, LUA_GLOBALSINDEX);
 
-  luaL_getmetatable(l, lwPCha_r(RecordInfo.RecordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(RecordInfo.RecordName+'_mt'));
   midx := lua_gettop(l);
 
   plua_pushstring(l, RecordInfo.RecordName);
@@ -388,7 +381,7 @@ begin
   lua_pushcfunction(L, @plua_gc_record);
   lua_rawset(L, oidx);
 
-  luaL_getmetatable(l, lwPCha_r(rInfo^.RecordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(rInfo^.RecordName+'_mt'));
   lua_setmetatable(l, -2);
 
   lua_settable(l, LUA_GLOBALSINDEX );
@@ -434,7 +427,7 @@ begin
   lua_pushcfunction(L, @plua_gc_record);
   lua_rawset(L, oidx);
 
-  luaL_getmetatable(l, lwPCha_r(rinfo^.RecordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(rinfo^.RecordName+'_mt'));
   lua_setmetatable(l, -2);
 end;
 

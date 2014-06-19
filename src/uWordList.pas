@@ -18,10 +18,8 @@ uses
   
 type
 {$IFDEF UNICODE}
-  lwPCha_r = PAnsiChar;
   lwCha_r = AnsiChar;
 {$ELSE}
-  lwPCha_r = PChar;
   lwCha_r = Char;
 {$ENDIF}
 
@@ -108,9 +106,9 @@ const
 function  TWordList.InternalAddWord(WhatWord : AnsiString) : PWordListSymbol;
 var
   n  : PWordListSymbol;
-  pc : lwPCha_r;
+  pc : PAnsiChar;
 begin
-  pc := lwPCha_r(WhatWord+#0);
+  pc := PAnsiChar(WhatWord+#0);
   n  := fDict.Data;
   while pc^<>#0 do
     begin
@@ -128,11 +126,11 @@ end;
 function TWordList.GetWordData(AWord: AnsiString): Pointer;
 var
   n  : PWordListSymbol;
-  pc : lwPCha_r;
+  pc : PAnsiChar;
 begin
   result := nil;
   n  := fDict.Data;
-  pc := lwPCha_r(AWord+#0);
+  pc := PAnsiChar(AWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -145,11 +143,11 @@ end;
 function TWordList.GetWordSymbol(AWord: AnsiString): PWordListSymbol;
 var
   n  : PWordListSymbol;
-  pc : lwPCha_r;
+  pc : PAnsiChar;
 begin
   result := nil;
   n  := fDict.Data;
-  pc := lwPCha_r(AWord+#0);
+  pc := PAnsiChar(AWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -181,10 +179,10 @@ end;
 procedure TWordList.SetWordData(AWord: AnsiString; const AValue: Pointer);
 var
   n  : PWordListSymbol;
-  pc : lwPCha_r;
+  pc : PAnsiChar;
 begin
   n  := fDict.Data;
-  pc := lwPCha_r(AWord+#0);
+  pc := PAnsiChar(AWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);
@@ -198,13 +196,13 @@ end;
 
 function TWordList.WordValid(WhatWord: AnsiString): Boolean;
 var
-  pc : lwPCha_r;
+  pc : PAnsiChar;
 begin
   result := false;
   if length(trim(string(WhatWord))) > 0 then
     begin
       result := true;
-      pc := lwPCha_r(WhatWord+#0);
+      pc := PAnsiChar(WhatWord+#0);
       while pc^<>#0 do
         begin
           if not(pc^ in ['a'..'z', 'A'..'Z']{, '0'..'9', '_', '-']}) then
@@ -398,10 +396,10 @@ end;
 function TWordList.WordExists(const WhatWord: AnsiString; AllowPartial : Boolean): Boolean;
 var
   n  : PWordListSymbol;
-  pc : lwPCha_r;
+  pc : PAnsiChar;
 begin
   n  := fDict.Data;
-  pc := lwPCha_r(WhatWord+#0);
+  pc := PAnsiChar(WhatWord+#0);
   while (pc^<>#0) and assigned(n) do
     begin
       n := fDict.Exists(pc^, n);

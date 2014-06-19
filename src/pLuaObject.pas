@@ -177,13 +177,6 @@ uses
 
 var
   LuaObjects : TList;
-  
-type
-{$IFDEF UNICODE}
-  lwPCha_r = PAnsiChar;
-{$ELSE}
-  lwPCha_r = PChar;
-{$ENDIF}
 
 function plua_gc_class(l : PLua_State) : integer; cdecl; forward;
 
@@ -331,7 +324,7 @@ begin
       lua_rawset(l, -3);
     end;
 
-  luaL_getmetatable(l, lwPCha_r(cinfo^.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(cinfo^.ClassName+'_mt'));
   lua_setmetatable(l, -2);
 
   result := 1;
@@ -371,11 +364,11 @@ begin
   plua_pushstring(l, classInfo.ClassName);
   lua_newtable(l);
 
-  luaL_newmetatable(l, lwPCha_r(classInfo.ClassName+'_mt'));
+  luaL_newmetatable(l, PAnsiChar(classInfo.ClassName+'_mt'));
   lua_setmetatable(l, -2);
   lua_settable(l, LUA_GLOBALSINDEX);
   
-  luaL_getmetatable(l, lwPCha_r(classInfo.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(classInfo.ClassName+'_mt'));
   midx := lua_gettop(l);
 
   plua_pushstring(l, classInfo.ClassName);
@@ -534,7 +527,7 @@ begin
       lua_rawset(l, -3);
     end;
 
-  luaL_getmetatable(l, lwPCha_r(cinfo^.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(cinfo^.ClassName+'_mt'));
   lua_setmetatable(l, -2);
 
   lua_settable(l, LUA_GLOBALSINDEX );
@@ -588,7 +581,7 @@ begin
       lua_rawset(l, -3);
     end;
 
-  luaL_getmetatable(l, lwPCha_r(cinfo^.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(cinfo^.ClassName+'_mt'));
   lua_setmetatable(l, -2);
 end;
 
