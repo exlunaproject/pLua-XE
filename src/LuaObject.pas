@@ -5,7 +5,12 @@ unit LuaObject;
   Copyright (c) 2007 Jeremy Darling
   Modifications copyright (c) 2010-2014 Felipe Daragon
   
-  License: MIT (http://opensource.org/licenses/mit-license.php)
+  This unit is provided to support the older version of pLua. The new
+  features presented within pLuaObject give more flexability when
+  wrapping existing object types. Though it still makes sense to use
+  TLuaObject when building objects specifically for the Lua environment.
+  
+  License: MIT (http://opensource.org/licenses/mit-license.php) 
   
   Changes:
   * 17.06.2014, FD - Changed to work with string instead of ansistring.

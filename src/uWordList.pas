@@ -4,6 +4,13 @@ unit uWordList;
   Copyright (c) 2007 Jeremy Darling
   Modifications copyright (c) 2010-2014 Felipe Daragon
   
+  This unit contains a TWordList class that implements a basic DAWG
+  (Directed Acyclic Word Graph). While this class was not created
+  explicitly for use with pLua it provides a fast word searching ability
+  that we really need within a scripting engine. One of the advantages
+  of this implementation are that it allows for data to be attached to a
+  word or a letter within a word.
+  
   License: MIT (http://opensource.org/licenses/mit-license.php)
 }
 
