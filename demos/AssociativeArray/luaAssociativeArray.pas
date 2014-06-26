@@ -6,7 +6,7 @@ uses
   Lua, Classes, SysUtils, uAssociativeArray;
 
 procedure RegisterAssociativeArray(L : Plua_State);
-procedure RegisterExistingAssociativeArray(L : Plua_State; ar : TAssociativeArray; instanceName : AnsiString);
+procedure RegisterExistingAssociativeArray(L : Plua_State; ar : TAssociativeArray; instanceName : String);
 
 implementation
 
@@ -47,7 +47,7 @@ begin
 end;
 
 procedure RegisterExistingAssociativeArray(L: Plua_State;
-  ar: TAssociativeArray; instanceName: AnsiString);
+  ar: TAssociativeArray; instanceName: String);
 begin
   plua_registerExisting(l, instanceName, ar, @AssociativeArrayInfo, false);
 end;
