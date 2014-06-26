@@ -143,13 +143,13 @@ begin
   if not EventExists(EventName) then
     exit;
   PushSelf;
-  result := plua_callfunction(L, ansistring(EventName), args, results, lua_gettop(L));
+  result := plua_callfunction(L, EventName, args, results, lua_gettop(L));
 end;
 
 function TLuaObject.EventExists(EventName: String): Boolean;
 begin
   PushSelf;
-  result := plua_functionexists(L, ansistring(EventName), lua_gettop(L));
+  result := plua_functionexists(L, EventName, lua_gettop(L));
   lua_pop(L, 1);
 end;
 
@@ -322,7 +322,7 @@ begin
       result := 0;
       exit;
     end;
-  propName := string(plua_tostring(L, 1));
+  propName := lua_tostring(L, 1);
   index_TLuaObject := 1;
   if E.PropIsObject(propName) then
     begin
@@ -351,7 +351,7 @@ begin
     begin
       exit;
     end;
-  propName := string(plua_tostring(L, 2));
+  propName := lua_tostring(L, 2);
   if E.PropIsObject(propName) and E.SetPropObject(propName) then
   else if not E.SetPropValue(propName, plua_tovariant(L, 3)) then
     begin

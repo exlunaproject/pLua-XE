@@ -141,7 +141,7 @@ function plua_gc_record(l : PLua_State) : integer; cdecl; forward;
 
 function plua_index_record(l : PLua_State) : integer; cdecl;
 var
-  propName : AnsiString;
+  propName : String;
   propValueStart : Integer;
   rec      : pointer;
   rInfo    : PLuaRecordInstanceInfo;
@@ -158,16 +158,16 @@ begin
     exit;
   rec := rInfo^.RecordPointer;
 
-  propName := plua_tostring(l, 2);
+  propName := lua_tostring(l, 2);
   propValueStart := 3;
-  reader := LuaRecords.GetPropReader(rInfo^.recordInfo, propName);
+  reader := LuaRecords.GetPropReader(rInfo^.recordInfo, ansistring(propName));
   if assigned(reader) then
     result := reader(rec, l, propValueStart, pcount);
 end;
 
 function plua_newindex_record(l : PLua_State) : integer; cdecl;
 var
-  propName : AnsiString;
+  propName : String;
   propValueStart : Integer;
   rec      : pointer;
   rInfo    : PLuaRecordInstanceInfo;
@@ -185,16 +185,16 @@ begin
     exit;
   rec := rInfo^.RecordPointer;
 
-  propName := plua_tostring(l, 2);
+  propName := lua_tostring(l, 2);
   propValueStart := 3;
-  writer := LuaRecords.GetPropWriter(rInfo^.recordInfo, propName, bReadOnly);
+  writer := LuaRecords.GetPropWriter(rInfo^.recordInfo, ansistring(propName), bReadOnly);
   if assigned(writer) then
     result := writer(rec, l, propValueStart, pcount)
   else
     begin
       if not bReadOnly then
         begin
-          plua_pushstring(l, propName);
+          lua_pushstring(l, propName);
           lua_pushvalue(l, propValueStart);
           lua_rawset(l, 1);
         end;
@@ -274,7 +274,7 @@ var
 begin
   lidx := LuaRecords.Add(RecordInfo);
 
-  plua_pushstring(l, RecordInfo.RecordName);
+  lua_pushstring(l, string(RecordInfo.RecordName));
   lua_newtable(l);
 
   luaL_newmetatable(l, PAnsiChar(RecordInfo.RecordName+'_mt'));
@@ -284,7 +284,7 @@ begin
   luaL_getmetatable(l, PAnsiChar(RecordInfo.RecordName+'_mt'));
   midx := lua_gettop(l);
 
-  plua_pushstring(l, RecordInfo.RecordName);
+  lua_pushstring(l, string(RecordInfo.RecordName));
   lua_gettable(l, LUA_GLOBALSINDEX);
   tidx := lua_gettop(l);
 
@@ -364,7 +364,7 @@ begin
   instance^.RecordPointer := RecordPointer;
   intLuaRecords.Add(pointer(instance));
 
-  plua_pushstring(l, InstanceName);
+  lua_pushstring(l, string(InstanceName));
   lua_newtable(L);
   instance^.LuaRef := luaL_ref(L, LUA_REGISTRYINDEX);
   lua_rawgeti(l, LUA_REGISTRYINDEX, instance^.LuaRef);
@@ -446,7 +446,7 @@ var
   instance : PLuaRecordInstanceInfo;
 begin
   result := nil;
-  plua_pushstring(l, '__instance');
+  lua_pushstring(l, '__instance');
   lua_rawget(l, plua_absindex(l, idx));
   instance := PLuaRecordInstanceInfo(ptrint(lua_tointeger(l, -1)));
   lua_pop(l, 1);
@@ -458,7 +458,7 @@ function plua_getRecordInfo(l: PLua_State; idx: Integer
   ): PLuaRecordInstanceInfo;
 begin
   //result := nil;
-  plua_pushstring(l, '__instance');
+  lua_pushstring(l, '__instance');
   lua_rawget(l, plua_absindex(l, idx));
   result := PLuaRecordInstanceInfo(ptrint(lua_tointeger(l, -1)));
   lua_pop(l, 1);
@@ -484,7 +484,7 @@ begin
   for i := 0 to Length(RecordInfo^.Properties) -1 do
     if assigned(RecordInfo^.Properties[i].Writer) then
       begin
-        plua_pushstring(L, RecordInfo^.Properties[i].PropName);
+        lua_pushstring(L, string(RecordInfo^.Properties[i].PropName));
         RecordInfo^.Properties[i].Writer(RecordPointer, L, 0, 0);
         lua_settable(l, tblidx);
       end;

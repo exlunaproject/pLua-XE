@@ -8,6 +8,7 @@ unit pLua;
   Same as the original code by Jeremy Darling.
 
   Changes:
+  * 26.06.2014, FD - Changed to work with string instead of ansistring.
   * 18.06.2014, FD - Added several functions for getting/setting the
   value of Lua table fields and local/global variables
   * 17.06.2014, FD - Added plua_dostring
@@ -22,30 +23,26 @@ unit pLua;
 interface
 
 uses
-  SysUtils, Classes, lua;
-
-Type // FD, 16/05/2010
-  PtrInt = Integer;
-  PtrUint = Cardinal;
+  SysUtils, Classes, Variants, Lua;
 
 type
+  PtrInt = Integer;
+  PtrUint = Cardinal;
   TVariantArray = array of Variant;
   PVariantArray = ^TVariantArray;
 
+type
   LuaException = class(Exception)
   end;
 
-function plua_tostring(L: PLua_State; Index: Integer): ansistring;
-procedure plua_pushstring(L: PLua_State; AString: ansistring);
-
-procedure plua_RegisterLuaTable(L: PLua_State; Name: ansistring;
+procedure plua_RegisterLuaTable(L: PLua_State; Name: string;
   Reader: lua_CFunction = nil; Writer: lua_CFunction = nil;
   TableIndex: Integer = LUA_GLOBALSINDEX);
 
-function plua_functionexists(L: PLua_State; FunctionName: ansistring;
+function plua_functionexists(L: PLua_State; FunctionName: string;
   TableIndex: Integer = LUA_GLOBALSINDEX): boolean;
 
-function plua_callfunction(L: PLua_State; FunctionName: ansistring;
+function plua_callfunction(L: PLua_State; FunctionName: string;
   const args: Array of Variant; results: PVariantArray = nil;
   TableIndex: Integer = LUA_GLOBALSINDEX): Integer;
 
@@ -57,16 +54,18 @@ function plua_tovariant(L: PLua_State; Index: Integer): Variant;
 
 function plua_absindex(L: PLua_State; Index: Integer): Integer;
 
-procedure plua_spliterrormessage(const ErrMsg: string; out Title: ansistring;
-  out Line: Integer; out Msg: ansistring);
+procedure plua_spliterrormessage(const ErrMsg: string; out Title: string;
+  out Line: Integer; out Msg: string);
 
 procedure plua_CopyTable(L: PLua_State; IdxFrom, IdxTo: Integer);
 
-procedure plua_RegisterMethod(L: PLua_State; aMethodName: ansistring;
+procedure plua_RegisterMethod(L: PLua_State; aMethodName: string;
   MethodPtr: lua_CFunction; totable: Integer = LUA_GLOBALSINDEX);
 
-procedure plua_GetTableKey(L: PLua_State; TableIndex: Integer;
-  KeyName: ansistring);
+procedure plua_GetTableKey(L: PLua_State; TableIndex: Integer; KeyName: string);
+
+procedure plua_pushansistring(L: PLua_State; AString: ansistring);
+function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
 
 { FD Additions }
 
@@ -76,38 +75,34 @@ function plua_AnyToString(L: PLua_State; idx: Integer): string;
 
 // Gets or sets the value of local and global Lua variables
 function plua_GetLuaVar(L: PLua_State; idx: Integer): Variant;
-function plua_GetGlobal(L: PLua_State; valName: ansistring): Variant;
-function plua_GetLocal(L: PLua_State; valName: ansistring): Variant;
-procedure plua_SetGlobal(L: PLua_State; valName: ansistring;
-  const AValue: Variant);
-procedure plua_SetLocal(L: PLua_State; valName: ansistring;
-  const AValue: Variant);
+function plua_GetGlobal(L: PLua_State; varName: string): Variant;
+function plua_GetLocal(L: PLua_State; varName: string): Variant;
+procedure plua_SetGlobal(L: PLua_State; varName: string; const AValue: Variant);
+procedure plua_SetLocal(L: PLua_State; varName: string; const AValue: Variant);
 
 // Gets the value of a table field
-function plua_GetFieldStr(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
+function plua_GetFieldValueStr(L: PLua_State; idx: Integer; FieldName: string;
   ADefaultValue: string = ''): string;
-function plua_GetFieldInt(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
+function plua_GetFieldValueInt(L: PLua_State; idx: Integer; FieldName: string;
   ADefaultValue: Integer): Integer;
-function plua_GetFieldBool(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
+function plua_GetFieldValueBool(L: PLua_State; idx: Integer; FieldName: string;
   ADefaultValue: boolean): boolean;
-function plua_GetFieldVariant(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
-  ADefaultValue: Variant): Variant;
+function plua_GetFieldValueVariant(L: PLua_State; idx: Integer;
+  FieldName: string; ADefaultValue: Variant): Variant;
 
 // Sets the value of a table field
-procedure plua_SetFieldValue(L: PLua_State; FieldName: PAnsiChar; AValue: string); overload;
-procedure plua_SetFieldValue(L: PLua_State; FieldName: PAnsiChar;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
+  AValue: string); overload;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: Integer); overload;
-procedure plua_SetFieldValue(L: PLua_State; FieldName: PAnsiChar;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: boolean); overload;
-procedure plua_SetFieldValueVariant(L: PLua_State; FieldName: PAnsiChar;
+procedure plua_SetFieldValueV(L: PLua_State; FieldName: string;
   AValue: Variant);
 
 implementation
 
-uses
-  Variants;
-
-function plua_tostring(L: PLua_State; Index: Integer): ansistring;
+function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
 var
   Size: Integer;
 begin
@@ -117,12 +112,12 @@ begin
     Move(lua_tostringP(L, Index)^, Result[1], Size);
 end;
 
-procedure plua_pushstring(L: PLua_State; AString: ansistring);
+procedure plua_pushansistring(L: PLua_State; AString: ansistring);
 begin
   lua_pushstring(L, PAnsiChar(AString));
 end;
 
-procedure plua_RegisterLuaTable(L: PLua_State; Name: ansistring;
+procedure plua_RegisterLuaTable(L: PLua_State; Name: string;
   Reader: lua_CFunction; Writer: lua_CFunction; TableIndex: Integer);
 var
   tidx, midx: Integer;
@@ -130,7 +125,7 @@ begin
   lua_gettable(L, TableIndex);
   if (lua_type(L, -1) <> LUA_TTABLE) then
   begin
-    lua_pushliteral(L, PAnsiChar(Name));
+    lua_pushliteral(L, Name);
     lua_newtable(L);
     tidx := lua_gettop(L);
 
@@ -148,10 +143,10 @@ begin
   end;
 end;
 
-function plua_functionexists(L: PLua_State; FunctionName: ansistring;
+function plua_functionexists(L: PLua_State; FunctionName: string;
   TableIndex: Integer): boolean;
 begin
-  plua_pushstring(L, FunctionName);
+  lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
   Result := lua_isfunction(L, lua_gettop(L));
   if Result then
@@ -161,24 +156,24 @@ begin
   end;
 end;
 
-function plua_callfunction(L: PLua_State; FunctionName: ansistring;
+function plua_callfunction(L: PLua_State; FunctionName: string;
   const args: Array of Variant; results: PVariantArray = nil;
   TableIndex: Integer = LUA_GLOBALSINDEX): Integer;
 var
   NArgs, offset, i: Integer;
-  Msg: ansistring;
+  Msg: string;
 begin
   offset := lua_gettop(L);
-  plua_pushstring(L, FunctionName);
+  lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
   NArgs := High(args);
   for i := 0 to NArgs do
     plua_pushvariant(L, args[i]);
   if lua_pcall(L, NArgs + 1, LUA_MULTRET, 0) <> 0 then
   begin
-    Msg := plua_tostring(L, -1);
+    Msg := lua_tostring(L, -1);
     lua_pop(L, 1);
-    raise LuaException.create(string(Msg));
+    raise LuaException.create(Msg);
   end;
   Result := lua_gettop(L) - offset;
   if (results <> Nil) then
@@ -199,9 +194,9 @@ begin
     varBoolean:
       lua_pushboolean(L, v);
     varStrArg, varOleStr, varString{$IFDEF UNICODE}, varUString{$ENDIF} :
-      plua_pushstring(L, ansistring(v)); // FD: 06/05/2013, added unicode
+      lua_pushstring(L, string(v)); // FD: 06/05/2013, added unicode
     varDate:
-      plua_pushstring(L, ansistring(DateTimeToStr(VarToDateTime(v))));
+      lua_pushstring(L, DateTimeToStr(VarToDateTime(v)));
     varArray:
       begin
         h := VarArrayHighBound(v, 1);
@@ -234,7 +229,7 @@ begin
   begin
     SetLength(va, cnt + 1);
     if Assigned(Keys) then
-      Keys.Add(string(plua_tostring(L, -2)));
+      Keys.Add(lua_tostring(L, -2));
     va[cnt] := plua_tovariant(L, -1);
     lua_pop(L, 1);
     inc(cnt);
@@ -261,7 +256,7 @@ begin
   dataType := lua_type(L, Index);
   case dataType of
     LUA_TSTRING:
-      Result := VarAsType(plua_tostring(L, Index), varString);
+      Result := VarAsType(lua_tostring(L, Index), varString);
     LUA_TUSERDATA, LUA_TLIGHTUSERDATA:
       Result := VarAsType(PtrInt(lua_touserdata(L, Index)), varInteger);
     LUA_TNONE, LUA_TNIL:
@@ -297,8 +292,8 @@ begin
     Result := index + lua_gettop(L) + 1
 end;
 
-procedure plua_spliterrormessage(const ErrMsg: string; out Title: ansistring;
-  out Line: Integer; out Msg: ansistring);
+procedure plua_spliterrormessage(const ErrMsg: string; out Title: string;
+  out Line: Integer; out Msg: string);
 const
   Term = #$00;
   function S(Index: Integer): Char;
@@ -325,7 +320,7 @@ var
 begin
   Title := '';
   Line := 0;
-  Msg := ansistring(ErrMsg);
+  Msg := ErrMsg;
   Find := False;
   i := 1 - 1;
   Stop := 0;
@@ -343,21 +338,21 @@ begin
     if (S(i) = ':') then
       Find := True;
   until (Find);
-  Title := ansistring(Copy(ErrMsg, 1, Start - 1));
+  Title := Copy(ErrMsg, 1, Start - 1);
   LS := Copy(ErrMsg, Start + 1, Stop - Start - 1);
   Line := StrToIntDef(LS, 0);
-  Msg := ansistring(Copy(ErrMsg, Stop + 1, Length(ErrMsg)));
+  Msg := Copy(ErrMsg, Stop + 1, Length(ErrMsg));
 end;
 
 procedure plua_CopyTable(L: PLua_State; IdxFrom, IdxTo: Integer);
 var
   id: Integer;
-  key: ansistring;
+  key: string;
 begin
   lua_pushnil(L);
   while (lua_next(L, IdxFrom) <> 0) do
   begin
-    key := plua_tostring(L, -2);
+    key := lua_tostring(L, -2);
     case lua_type(L, -1) of
       LUA_TTABLE:
         begin
@@ -365,7 +360,7 @@ begin
           plua_CopyTable(L, id, IdxTo);
         end;
     else
-      lua_pushliteral(L, PAnsiChar(key));
+      lua_pushliteral(L, key);
       lua_pushvalue(L, -2);
       lua_rawset(L, IdxTo);
     end;
@@ -373,19 +368,18 @@ begin
   end;
 end;
 
-procedure plua_RegisterMethod(L: PLua_State; aMethodName: ansistring;
+procedure plua_RegisterMethod(L: PLua_State; aMethodName: string;
   MethodPtr: lua_CFunction; totable: Integer);
 begin
-  lua_pushliteral(L, PAnsiChar(aMethodName));
+  lua_pushliteral(L, aMethodName);
   lua_pushcfunction(L, MethodPtr);
   lua_settable(L, totable);
 end;
 
-procedure plua_GetTableKey(L: PLua_State; TableIndex: Integer;
-  KeyName: ansistring);
+procedure plua_GetTableKey(L: PLua_State; TableIndex: Integer; KeyName: string);
 begin
   TableIndex := plua_absindex(L, TableIndex);
-  plua_pushstring(L, KeyName);
+  lua_pushstring(L, KeyName);
   lua_gettable(L, TableIndex);
 end;
 
@@ -398,7 +392,7 @@ begin
   lua_pcall(L, 0, 0, 0);
 end;
 
-function plua_GetFieldStr(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
+function plua_GetFieldValueStr(L: PLua_State; idx: Integer; FieldName: string;
   ADefaultValue: string = ''): string;
 begin
   lua_pushstring(L, FieldName);
@@ -409,7 +403,7 @@ begin
     Result := lua_tostring(L, -1);
 end;
 
-function plua_GetFieldInt(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
+function plua_GetFieldValueInt(L: PLua_State; idx: Integer; FieldName: string;
   ADefaultValue: Integer): Integer;
 begin
   lua_pushstring(L, FieldName);
@@ -420,7 +414,7 @@ begin
     Result := lua_tointeger(L, -1);
 end;
 
-function plua_GetFieldBool(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
+function plua_GetFieldValueBool(L: PLua_State; idx: Integer; FieldName: string;
   ADefaultValue: boolean): boolean;
 begin
   lua_pushstring(L, FieldName);
@@ -431,8 +425,8 @@ begin
     Result := lua_toboolean(L, -1);
 end;
 
-function plua_GetFieldVariant(L: PLua_State; idx: Integer; FieldName: PAnsiChar;
-  ADefaultValue: Variant): Variant;
+function plua_GetFieldValueVariant(L: PLua_State; idx: Integer;
+  FieldName: string; ADefaultValue: Variant): Variant;
 begin
   lua_pushstring(L, FieldName);
   lua_gettable(L, idx);
@@ -442,6 +436,7 @@ begin
     Result := plua_tovariant(L, -1);
 end;
 
+// This is similar to lua_tostring but covers boolean and number Lua types
 function plua_AnyToString(L: PLua_State; idx: Integer): string;
 var
   ltype: Integer;
@@ -450,7 +445,7 @@ begin
   ltype := lua_type(L, idx);
   case ltype of
     LUA_TSTRING:
-      Result := string(PAnsiChar(ansistring(lua_tostring(L, idx))));
+      Result := lua_tostring(L, idx);
     LUA_TBOOLEAN:
       begin
         if lua_toboolean(L, idx) = True then
@@ -468,33 +463,35 @@ begin
   end;
 end;
 
-procedure plua_SetFieldValue(L: PLua_State; FieldName: PAnsiChar; AValue: string); overload;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
+  AValue: string); overload;
 begin
   lua_pushstring(L, AValue);
   lua_setfield(L, -2, FieldName);
 end;
 
-procedure plua_SetFieldValue(L: PLua_State; FieldName: PAnsiChar;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: Integer); overload;
 begin
   lua_pushinteger(L, AValue);
   lua_setfield(L, -2, FieldName);
 end;
 
-procedure plua_SetFieldValue(L: PLua_State; FieldName: PAnsiChar;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: boolean); overload;
 begin
   lua_pushboolean(L, AValue);
   lua_setfield(L, -2, FieldName);
 end;
 
-procedure plua_SetFieldValueVariant(L: PLua_State; FieldName: PAnsiChar;
+procedure plua_SetFieldValueV(L: PLua_State; FieldName: string;
   AValue: Variant);
 begin
   plua_pushvariant(L, AValue);
   lua_setfield(L, -2, FieldName);
 end;
 
+// This is a simpler implementation of the plua_tovariant function
 function plua_GetLuaVar(L: PLua_State; idx: Integer): Variant;
 var
   ltype: Integer;
@@ -518,102 +515,97 @@ begin
   Result := v;
 end;
 
-function plua_GetGlobal(L: PLua_State; valName: ansistring): Variant; // working
+function plua_GetGlobal(L: PLua_State; varName: string): Variant;
 var
   v: Variant;
 begin
   Result := NULL;
-  lua_pushstring(L, PAnsiChar(valName));
+  lua_pushstring(L, varName);
   lua_rawget(L, LUA_GLOBALSINDEX);
   try
-    // writeln('getting '+valname);
+    // writeln('getting '+varname);
     v := plua_GetLuaVar(L, -1); // plua_tovariant(L, -1);
     Result := v;
-    // writeln('got '+valname+': '+result);
+    // writeln('got '+varname+': '+result);
   finally
     lua_pop(L, 1);
   end;
 end;
 
-function plua_GetLocal(L: PLua_State; valName: ansistring): Variant;
+function plua_GetLocal(L: PLua_State; varName: string): Variant;
 var
-  ar: plua_Debug; // use plua_debug, not lua_debug!
-  VarName: PAnsiChar;
-  VarValue: Variant;
-  current: Integer;
+  ar: plua_Debug; // use plua_debug instead of lua_debug
+  vn: PAnsiChar;
+  value: Variant;
+  i: Integer;
   found: boolean;
-  Name: string;
 begin
   Result := NULL;
   found := False;
-  Name := string(valName);
 
   lua_getglobal(L, 'tostring'); // this fixes ocasional crash with lua_getstack
   if lua_getstack(L, 1, @ar) <> 1 then
   begin
     Exit;
   end;
-  current := 1;
-  VarName := lua_getlocal(L, @ar, current);
-  while VarName <> nil do
+  i := 1;
+  vn := lua_getlocal(L, @ar, i);
+  while vn <> nil do
   begin
     // lua_pop(L,1);
-    // writeln('Matching var:'+varname);
-    if VarName = PAnsiChar(ansistring(Name)) then
+    // writeln('Matching var:'+vn);
+    if vn = PAnsiChar(ansistring(varName)) then
     begin
       found := True;
       if found = True then
       begin // hides H2077 compiler warning
       end;
-      // writeln('Found var:'+varname);
+      // writeln('Found var:'+vn);
       try
-        VarValue := plua_GetLuaVar(L, -1); // plua_tovariant(L, -1);
+        value := plua_GetLuaVar(L, -1); // plua_tovariant(L, -1);
       finally
         lua_pop(L, 1);
       end;
-      // writeln('found!'+varname+';'+varvalue);
-      Result := VarValue;
+      // writeln('found!'+vn+';'+vv);
+      Result := value;
       Exit;
     end;
     lua_pop(L, 1);
-    VarName := lua_getlocal(L, @ar, current);
-    inc(current);
+    vn := lua_getlocal(L, @ar, i);
+    inc(i);
   end;
   if found = False then
   begin // local not found, tries to get global with the same name
-    // writeln('not found locally:'+valname);
+    // writeln('not found locally:'+vn);
     try
-      VarValue := plua_GetGlobal(L, valName);
+      value := plua_GetGlobal(L, varName);
     except
     end;
-    Result := VarValue;
-    // writeln('global search for '+valname+' returned):'+result);
+    Result := value;
+    // writeln('global search for '+vn+' returned):'+result);
   end;
 end;
 
-procedure plua_SetLocal(L: PLua_State; valName: ansistring;
-  const AValue: Variant);
+procedure plua_SetLocal(L: PLua_State; varName: string; const AValue: Variant);
 var
   ar: plua_Debug;
-  VarName: PAnsiChar;
-  current: Integer;
+  vn: PAnsiChar;
+  i: Integer;
   found: boolean;
-  Name: string;
   NewValue: Variant;
 begin
   found := False;
-  Name := string(valName);
   NewValue := AValue;
 
   if lua_getstack(L, 1, @ar) <> 1 then
   begin
     Exit;
   end;
-  current := 1;
-  VarName := lua_getlocal(L, @ar, current);
-  while VarName <> nil do
+  i := 1;
+  vn := lua_getlocal(L, @ar, i);
+  while vn <> nil do
   begin
-    if VarName = PAnsiChar(ansistring(Name)) then
+    if vn = PAnsiChar(ansistring(varName)) then
     begin
       found := True;
       if found = True then
@@ -623,7 +615,7 @@ begin
       // lua_pop(L,1);
       try
         plua_pushvariant(L, NewValue);
-        lua_setlocal(L, @ar, current);
+        lua_setlocal(L, @ar, i);
       finally
         lua_pop(L, 1);
       end;
@@ -631,30 +623,29 @@ begin
       Exit;
     end;
     lua_pop(L, 1);
-    inc(current);
-    VarName := lua_getlocal(L, @ar, current);
+    inc(i);
+    vn := lua_getlocal(L, @ar, i);
 
   end;
   if found = False then
   begin // new, local not found, tries to set global with the same name
     // writeln('not found locally:'+valname);
-    plua_SetGlobal(L, valName, NewValue);
+    plua_SetGlobal(L, varName, NewValue);
   end;
 end;
 
-procedure plua_SetGlobal(L: PLua_State; valName: ansistring;
-  const AValue: Variant);
+procedure plua_SetGlobal(L: PLua_State; varName: string; const AValue: Variant);
 begin
-  // writeln('setting glob:'+valname+'; new value: '+avalue);
+  // writeln('setting glob:'+varname+'; new value: '+avalue);
   if VarIsType(AValue, varString) then
   begin
-    lua_pushliteral(L, PAnsiChar(valName));
-    lua_pushstring(L, PAnsiChar(ansistring(AValue)));
+    lua_pushliteral(L, varName);
+    lua_pushstring(L, string(AValue));
     lua_settable(L, LUA_GLOBALSINDEX);
   end
   else
   begin
-    lua_pushliteral(L, PAnsiChar(valName));
+    lua_pushliteral(L, varName);
     plua_pushvariant(L, AValue);
     lua_settable(L, LUA_GLOBALSINDEX);
   end;

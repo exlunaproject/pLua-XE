@@ -141,7 +141,7 @@ end;
 function TLuaObject.EventExists(EventName: AnsiString): Boolean;
 begin
   PushSelf;
-  result := plua_functionexists(L, EventName, lua_gettop(L));
+  result := plua_functionexists(L, string(EventName), lua_gettop(L));
   lua_pop(L, 1);
 end;
 

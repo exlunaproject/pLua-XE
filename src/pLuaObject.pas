@@ -200,7 +200,7 @@ begin
     exit;
   obj := cInfo^.obj;
 
-  propName := string(plua_tostring(l, 2));
+  propName := lua_tostring(l, 2);
   propValueStart := 3;
   reader := LuaClasses.GetPropReader(cInfo^.ClassInfo, ansistring(propName));
   if assigned(reader) then
@@ -221,7 +221,7 @@ end;
 
 function plua_newindex_class(l : PLua_State) : integer; cdecl;
 var
-  propName : AnsiString;
+  propName : String;
   propValueStart : Integer;
   obj      : TObject;
   cInfo    : PLuaInstanceInfo;
@@ -239,16 +239,16 @@ begin
     exit;
   obj := cInfo^.obj;
 
-  propName := plua_tostring(l, 2);
+  propName := lua_tostring(l, 2);
   propValueStart := 3;
-  writer := LuaClasses.GetPropWriter(cInfo^.ClassInfo, propName, bReadOnly);
+  writer := LuaClasses.GetPropWriter(cInfo^.ClassInfo, ansistring(propName), bReadOnly);
   if assigned(writer) then
     result := writer(obj, l, propValueStart, pcount)
   else
     begin
       if not bReadOnly then
         begin
-          plua_pushstring(l, propName);
+          lua_pushstring(l, propName);
           lua_pushvalue(l, propValueStart);
           lua_rawset(l, 1);
         end;
@@ -318,7 +318,7 @@ begin
 // TODO - Add parent method calls in
   for i := 0 to Length(cInfo^.Methods)-1 do
     begin
-      plua_pushstring(L, cInfo^.Methods[i].MethodName);
+      lua_pushstring(L, string(cInfo^.Methods[i].MethodName));
       lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper)); // FD: 16/05/2010, cInfo to @cInfo 
       lua_pushcclosure(L, @plua_call_class_method, 1);
       lua_rawset(l, -3);
@@ -361,7 +361,7 @@ var
 begin
   lidx := LuaClasses.Add(classInfo);
 
-  plua_pushstring(l, classInfo.ClassName);
+  lua_pushstring(l, string(classInfo.ClassName));
   lua_newtable(l);
 
   luaL_newmetatable(l, PAnsiChar(classInfo.ClassName+'_mt'));
@@ -371,7 +371,7 @@ begin
   luaL_getmetatable(l, PAnsiChar(classInfo.ClassName+'_mt'));
   midx := lua_gettop(l);
 
-  plua_pushstring(l, classInfo.ClassName);
+  lua_pushstring(l, string(classInfo.ClassName));
   lua_gettable(l, LUA_GLOBALSINDEX);
   tidx := lua_gettop(l);
 
@@ -458,7 +458,7 @@ var
   instance : PLuaInstanceInfo;
 begin
   result := nil;
-  plua_pushstring(l, '__instance');
+  lua_pushstring(l, '__instance');
   lua_rawget(l, plua_absindex(l, idx));
   instance := PLuaInstanceInfo(ptrint(lua_tointeger(l, -1)));
   lua_pop(l, 1);
@@ -469,7 +469,7 @@ end;
 function plua_getObjectInfo(l: PLua_State; idx: Integer): PLuaInstanceInfo;
 begin
   //result := nil;
-  plua_pushstring(l, '__instance');
+  lua_pushstring(l, '__instance');
   lua_rawget(l, plua_absindex(l, idx));
   result := PLuaInstanceInfo(ptrint(lua_tointeger(l, -1)));
   lua_pop(l, 1);
@@ -486,7 +486,7 @@ begin
   instance := plua_GetObjectInfo(l, ObjectInstance);
   if assigned(instance) then
     begin
-      plua_pushstring(l, InstanceName);
+      lua_pushstring(l, string(InstanceName));
       plua_PushObject(instance);
       lua_settable(l, LUA_GLOBALSINDEX);
       result := instance;
@@ -504,7 +504,7 @@ begin
 
   LuaObjects.Add(pointer(instance));
 
-  plua_pushstring(l, InstanceName);
+  lua_pushstring(l, string(InstanceName));
   lua_newtable(L);
   instance^.LuaRef := luaL_ref(L, LUA_REGISTRYINDEX);
   lua_rawgeti(l, LUA_REGISTRYINDEX, instance^.LuaRef);
@@ -521,7 +521,7 @@ begin
 // TODO - Add parent method calls in
   for i := 0 to Length(cInfo^.Methods)-1 do
     begin
-      plua_pushstring(L, cInfo^.Methods[i].MethodName);
+      lua_pushstring(L, string(cInfo^.Methods[i].MethodName));
       lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper)); // FD: 16/05/2010, cInfo to @cInfo
       lua_pushcclosure(L, @plua_call_class_method, 1);
       lua_rawset(l, -3);
@@ -575,7 +575,7 @@ begin
 // TODO - Add parent method calls in
   for i := 0 to Length(cInfo^.Methods)-1 do
     begin
-      plua_pushstring(L, cInfo^.Methods[i].MethodName);
+      lua_pushstring(L, string(cInfo^.Methods[i].MethodName));
       lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper)); // FD: 16/05/2010, cInfo to @cInfo
       lua_pushcclosure(L, @plua_call_class_method, 1);
       lua_rawset(l, -3);
@@ -603,7 +603,7 @@ function plua_ObjectEventExists(ObjectInfo: PLuaInstanceInfo;
   EventName: AnsiString): Boolean;
 begin
   plua_PushObject(ObjectInfo);
-  result := plua_functionexists(ObjectInfo^.l, EventName, lua_gettop(ObjectInfo^.l));
+  result := plua_functionexists(ObjectInfo^.l, string(EventName), lua_gettop(ObjectInfo^.l));
   lua_pop(ObjectInfo^.L, 1);
 end;
 
@@ -618,7 +618,7 @@ begin
     exit;
   plua_PushObject(ObjectInfo);
   idx := lua_gettop(ObjectInfo^.l);
-  result := plua_callfunction(ObjectInfo^.l, EventName, args, results, idx);
+  result := plua_callfunction(ObjectInfo^.l, string(EventName), args, results, idx);
 end;
 
 function plua_GetEventDeletage(Obj: TObject): TLuaObjectEventDelegate;

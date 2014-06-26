@@ -280,7 +280,7 @@ end;
 procedure TLUA.RegisterLuaTable(PropName: String; reader: lua_CFunction;
   writer: lua_CFunction);
 begin
-  plua_RegisterLuaTable(l, ansistring(PropName), reader, writer);
+  plua_RegisterLuaTable(l, PropName, reader, writer);
 end;
 
 procedure TLUA.SetLibName(const Value: String);
@@ -333,7 +333,7 @@ begin
   result := -1;
   try
     if FunctionExists(FunctionName) then
-      result := plua_callfunction(L, AnsiString(FunctionName), Args, Results)
+      result := plua_callfunction(L, FunctionName, Args, Results)
     else
       result := -1;
   except
@@ -407,7 +407,7 @@ var
 begin
   if errCode <> 0 then
     begin
-      msg := string(plua_tostring(l, -1));
+      msg := lua_tostring(l, -1);
       lua_pop(l, 1);
       HandleException(LuaException.Create(msg));
     end;
@@ -415,7 +415,7 @@ end;
 
 procedure TLUA.HandleException(E: LuaException);
 var
-  title, msg : AnsiString;
+  title, msg : String;
   line       : Integer;
   handled    : Boolean;
 begin
@@ -423,7 +423,7 @@ begin
   if assigned(FOnException) then
     begin
       plua_spliterrormessage(e.Message, title, line, msg);
-      FOnException(string(title), line, string(msg), handled);
+      FOnException(title, line, msg, handled);
     end;
   if not handled then
     raise E;
@@ -456,7 +456,7 @@ begin
       begin
         lua_pushvalue(l, tblidx);
         tblidx := lua_gettop(l);
-        result := plua_callfunction(l, ansistring(FunctionName), args, results, tblidx)
+        result := plua_callfunction(l, FunctionName, args, results, tblidx)
       end
     else
       result := -1;
