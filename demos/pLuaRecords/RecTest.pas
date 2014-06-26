@@ -8,13 +8,13 @@ uses
 type
   PMyRecord = ^TMyRecord;
   TMyRecord = record
-    AString : AnsiString;
+    AString : String;
     Int     : Integer;
     Num     : Double;
   end;
 
 procedure RegisterMyRecordType( L : Plua_State );
-procedure RegisterExistingMyRecord( L : Plua_State; InstanceName : AnsiString; RecordPointer : Pointer);
+procedure RegisterExistingMyRecord( L : Plua_State; InstanceName : String; RecordPointer : Pointer);
 
 var
   MyRecordInfo : TLuaRecordInfo;
@@ -23,13 +23,13 @@ implementation
 
 function getAString(RecordPointer : pointer; l : Plua_State; paramidxstart, paramcount : integer) : Integer;
 begin
-  plua_pushstring(L, PMyRecord(RecordPointer)^.AString);
+  lua_pushstring(L, PMyRecord(RecordPointer)^.AString);
   result := 1;
 end;
 
 function setAString(RecordPointer : pointer; l : Plua_State; paramidxstart, paramcount : integer) : Integer;
 begin
-  PMyRecord(RecordPointer)^.AString := plua_tostring(l, paramidxstart);
+  PMyRecord(RecordPointer)^.AString := lua_tostring(l, paramidxstart);
   result := 0;
 end;
 
@@ -86,7 +86,7 @@ begin
   plua_registerRecordType(l, MyRecordInfo);
 end;
 
-procedure RegisterExistingMyRecord(L: Plua_State; InstanceName: AnsiString;
+procedure RegisterExistingMyRecord(L: Plua_State; InstanceName: String;
   RecordPointer: Pointer);
 begin
   plua_registerExistingRecord(L, InstanceName, RecordPointer, @MyRecordInfo);

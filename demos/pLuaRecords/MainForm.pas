@@ -7,9 +7,7 @@ uses
   pLuaRecord, StdCtrls;
 
 type
-
   { TForm1 }
-
   TForm1 = class(TForm)
     Button1: TButton;
     procedure Button1Click(Sender: TObject);

@@ -5,6 +5,9 @@ unit pLuaRecord;
   Modifications copyright (c) 2010-2014 Felipe Daragon
   
   License: MIT (http://opensource.org/licenses/mit-license.php)
+
+  Changes:
+  * 26.06.2014, FD - Changed to work with string instead of ansistring.
 }
 
 {$IFDEF FPC}
@@ -14,7 +17,7 @@ unit pLuaRecord;
 interface
 
 uses
-  Classes, SysUtils, lua, pLua, uWordList, pLuaObject, Types;
+  Classes, SysUtils, Lua, pLua, uWordList, pLuaObject, Types;
   
 type
   PLuaRecordInfo = ^TLuaRecordInfo;
@@ -28,14 +31,14 @@ type
 
   PLuaRecordProperty= ^TLuaRecordProperty;
   TLuaRecordProperty = record
-    PropName : AnsiString;
+    PropName : String;
     Reader   : plua_RecordPropertyReader;
     Writer   : plua_RecordPropertyWriter;
   end;
 
   TLuaRecordInfo = record
     Parent      : PLuaRecordInfo;
-    RecordName  : AnsiString;
+    RecordName  : String;
     PropHandlers: TWordList;
     New         : plua_RecordConstructor;
     Release     : plua_RecordDestructor;
@@ -61,14 +64,14 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    function  GetPropReader(aRecordInfo : PLuaRecordInfo; aPropertyName : AnsiString) : plua_RecordPropertyReader;
-    function  GetPropWriter(aRecordInfo : PLuaRecordInfo; aPropertyName : AnsiString; out ReadOnly : Boolean) : plua_RecordPropertyWriter;
+    function  GetPropReader(aRecordInfo : PLuaRecordInfo; aPropertyName : String) : plua_RecordPropertyReader;
+    function  GetPropWriter(aRecordInfo : PLuaRecordInfo; aPropertyName : String; out ReadOnly : Boolean) : plua_RecordPropertyWriter;
 
     function  GetInfo(l : PLua_State; RecordPointer: Pointer) : PLuaRecordInstanceInfo;
 
     function  Add(aRecordInfo : TLuaRecordInfo) : Integer;
-    procedure Remove(aRecordName : AnsiString);
-    function  IndexOf(aRecordName : AnsiString) : Integer;
+    procedure Remove(aRecordName : String);
+    function  IndexOf(aRecordName : String) : Integer;
     procedure Clear;
     property  Count : integer read GetCount;
     property  RecordInfo[index : integer]:PLuaRecordInfo read GetRecordInfo; default;
@@ -82,18 +85,18 @@ type
   private
     function GetCount: Integer;
     function GetIndexedItem(index : integer): PLuaRecordInfo;
-    function GetItem(ItemName : AnsiString): PLuaRecordInfo;
+    function GetItem(ItemName : String): PLuaRecordInfo;
   public
     constructor Create;
     destructor Destroy; override;
 
-    function  Add(ItemName : AnsiString; LuaParent : PLuaRecordInfo = nil) : PLuaRecordInfo;
-    procedure Remove(ItemName : AnsiString);
+    function  Add(ItemName : String; LuaParent : PLuaRecordInfo = nil) : PLuaRecordInfo;
+    procedure Remove(ItemName : String);
     procedure Clear;
 
     procedure RegisterTo(L : PLua_State);
 
-    property Item[ItemName : AnsiString] : PLuaRecordInfo read GetItem; default;
+    property Item[ItemName : String] : PLuaRecordInfo read GetItem; default;
     property IndexedItem[index : integer] : PLuaRecordInfo read GetIndexedItem;
     property Count : Integer read GetCount;
   end;
@@ -103,7 +106,7 @@ procedure plua_newRecordInfo( var RecordInfoPointer : PLuaRecordInfo);
 procedure plua_initRecordInfo( var RecordInfo : TLuaRecordInfo);
 procedure plua_releaseRecordInfo( var RecordInfoPointer : PLuaRecordInfo);
 
-function plua_registerExistingRecord( l : PLua_State; InstanceName : AnsiString;
+function plua_registerExistingRecord( l : PLua_State; InstanceName : String;
                                       RecordPointer: Pointer;
                                       RecordInfo : PLuaRecordInfo;
                                       FreeOnGC : Boolean = false) : PLuaRecordInstanceInfo;
@@ -114,7 +117,7 @@ function plua_pushexisting( l : PLua_State;
                             FreeOnGC : Boolean = false) : PLuaRecordInstanceInfo;
 
 procedure plua_AddRecordProperty( var RecordInfo : TLuaRecordInfo;
-                                 propertyName : AnsiString;
+                                 propertyName : String;
                                  Reader   : plua_RecordPropertyReader;
                                  Writer   : plua_RecordPropertyWriter );
 
@@ -160,7 +163,7 @@ begin
 
   propName := lua_tostring(l, 2);
   propValueStart := 3;
-  reader := LuaRecords.GetPropReader(rInfo^.recordInfo, ansistring(propName));
+  reader := LuaRecords.GetPropReader(rInfo^.recordInfo, propName);
   if assigned(reader) then
     result := reader(rec, l, propValueStart, pcount);
 end;
@@ -187,7 +190,7 @@ begin
 
   propName := lua_tostring(l, 2);
   propValueStart := 3;
-  writer := LuaRecords.GetPropWriter(rInfo^.recordInfo, ansistring(propName), bReadOnly);
+  writer := LuaRecords.GetPropWriter(rInfo^.recordInfo, propName, bReadOnly);
   if assigned(writer) then
     result := writer(rec, l, propValueStart, pcount)
   else
@@ -243,7 +246,7 @@ begin
   lua_pushcfunction(L, @plua_gc_record);
   lua_rawset(L, oidx);
 
-  luaL_getmetatable(l, PAnsiChar(rInfo^.recordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(rInfo^.recordName)+'_mt'));
   lua_setmetatable(l, -2);
 
   result := 1;
@@ -274,17 +277,17 @@ var
 begin
   lidx := LuaRecords.Add(RecordInfo);
 
-  lua_pushstring(l, string(RecordInfo.RecordName));
+  lua_pushstring(l, RecordInfo.RecordName);
   lua_newtable(l);
 
-  luaL_newmetatable(l, PAnsiChar(RecordInfo.RecordName+'_mt'));
+  luaL_newmetatable(l, PAnsiChar(AnsiString(RecordInfo.RecordName)+'_mt'));
   lua_setmetatable(l, -2);
   lua_settable(l, LUA_GLOBALSINDEX);
 
-  luaL_getmetatable(l, PAnsiChar(RecordInfo.RecordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(RecordInfo.RecordName)+'_mt'));
   midx := lua_gettop(l);
 
-  lua_pushstring(l, string(RecordInfo.RecordName));
+  lua_pushstring(l, RecordInfo.RecordName);
   lua_gettable(l, LUA_GLOBALSINDEX);
   tidx := lua_gettop(l);
 
@@ -338,7 +341,7 @@ begin
   Freemem(RecordInfoPointer);
 end;
 
-function plua_registerExistingRecord(l: PLua_State; InstanceName: AnsiString;
+function plua_registerExistingRecord(l: PLua_State; InstanceName: String;
   RecordPointer: Pointer; RecordInfo: PLuaRecordInfo; FreeOnGC: Boolean
   ): PLuaRecordInstanceInfo;
 var
@@ -364,7 +367,7 @@ begin
   instance^.RecordPointer := RecordPointer;
   intLuaRecords.Add(pointer(instance));
 
-  lua_pushstring(l, string(InstanceName));
+  lua_pushstring(l, InstanceName);
   lua_newtable(L);
   instance^.LuaRef := luaL_ref(L, LUA_REGISTRYINDEX);
   lua_rawgeti(l, LUA_REGISTRYINDEX, instance^.LuaRef);
@@ -378,7 +381,7 @@ begin
   lua_pushcfunction(L, @plua_gc_record);
   lua_rawset(L, oidx);
 
-  luaL_getmetatable(l, PAnsiChar(rInfo^.RecordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(rInfo^.RecordName)+'_mt'));
   lua_setmetatable(l, -2);
 
   lua_settable(l, LUA_GLOBALSINDEX );
@@ -423,12 +426,12 @@ begin
   lua_pushcfunction(L, @plua_gc_record);
   lua_rawset(L, oidx);
 
-  luaL_getmetatable(l, PAnsiChar(rinfo^.RecordName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(rinfo^.RecordName)+'_mt'));
   lua_setmetatable(l, -2);
 end;
 
 procedure plua_AddRecordProperty(var RecordInfo: TLuaRecordInfo;
-  propertyName: AnsiString; Reader: plua_RecordPropertyReader;
+  propertyName: String; Reader: plua_RecordPropertyReader;
   Writer: plua_RecordPropertyWriter);
 var
   idx : integer;
@@ -438,7 +441,7 @@ begin
   RecordInfo.Properties[idx].PropName := propertyName;
   RecordInfo.Properties[idx].Reader   := Reader;
   RecordInfo.Properties[idx].Writer   := Writer;
-  RecordInfo.PropHandlers.AddWord(propertyName)^.data := pointer(PtrInt(idx));
+  RecordInfo.PropHandlers.AddWord(ansistring(propertyName))^.data := pointer(PtrInt(idx));
 end;
 
 function plua_getRecord(l: PLua_State; idx: Integer): Pointer;
@@ -484,7 +487,7 @@ begin
   for i := 0 to Length(RecordInfo^.Properties) -1 do
     if assigned(RecordInfo^.Properties[i].Writer) then
       begin
-        lua_pushstring(L, string(RecordInfo^.Properties[i].PropName));
+        lua_pushstring(L, RecordInfo^.Properties[i].PropName);
         RecordInfo^.Properties[i].Writer(RecordPointer, L, 0, 0);
         lua_settable(l, tblidx);
       end;
@@ -530,14 +533,14 @@ begin
 end;
 
 function TLuaRecordList.GetPropReader(aRecordInfo: PLuaRecordInfo;
-  aPropertyName: AnsiString): plua_RecordPropertyReader;
+  aPropertyName: String): plua_RecordPropertyReader;
 var
   pi : PtrInt;
   ei : PWordListSymbol;
 begin
 // TODO - Add parent property calls in
   result := nil;
-  ei := aRecordInfo^.PropHandlers.WordSymbol[aPropertyName];
+  ei := aRecordInfo^.PropHandlers.WordSymbol[ansistring(aPropertyName)];
   if not assigned(ei) then
     exit;
   pi := PtrInt(ei^.data);
@@ -546,7 +549,7 @@ begin
 end;
 
 function TLuaRecordList.GetPropWriter(aRecordInfo: PLuaRecordInfo;
-  aPropertyName: AnsiString; out ReadOnly: Boolean): plua_RecordPropertyWriter;
+  aPropertyName: String; out ReadOnly: Boolean): plua_RecordPropertyWriter;
 var
   pi : PtrInt;
   ei : PWordListSymbol;
@@ -554,13 +557,13 @@ begin
 // TODO - Add parent property calls in
   ReadOnly := false;
   result := nil;
-  ei := aRecordInfo^.PropHandlers.WordSymbol[aPropertyName];
+  ei := aRecordInfo^.PropHandlers.WordSymbol[ansistring(aPropertyName)];
   if not assigned(ei) then
     exit;
   pi := PtrInt(ei^.data);
   if (pi >= 0) and (pi < length(aRecordInfo^.Properties)) then
     begin
-      ReadOnly := @aRecordInfo^.Properties[pi].Writer = nil; // FD: 16/05/2010, aRecordInfo to @aRecordInfo
+      ReadOnly := @aRecordInfo^.Properties[pi].Writer = nil;
       result := aRecordInfo^.Properties[pi].Writer;
     end;
 end;
@@ -596,7 +599,7 @@ begin
   ri^ := aRecordInfo;
 end;
 
-procedure TLuaRecordList.Remove(aRecordName: AnsiString);
+procedure TLuaRecordList.Remove(aRecordName: String);
 var
   idx : integer;
   ri  : PLuaRecordInfo;
@@ -610,7 +613,7 @@ begin
     end;
 end;
 
-function TLuaRecordList.IndexOf(aRecordName: AnsiString): Integer;
+function TLuaRecordList.IndexOf(aRecordName: String): Integer;
 var
   i : Integer;
 begin
@@ -618,7 +621,7 @@ begin
   i := 0;
   while (result = -1) and (i < count) do
     begin
-      if CompareText(string(aRecordName), string(RecordInfo[i]^.RecordName)) = 0 then
+      if CompareText(aRecordName, RecordInfo[i]^.RecordName) = 0 then
         result := i;
       inc(i);
     end;
@@ -648,9 +651,9 @@ begin
   result := PLuaRecordInfo(fItemList[index]);
 end;
 
-function TLuaRecordTypesList.GetItem(ItemName : AnsiString): PLuaRecordInfo;
+function TLuaRecordTypesList.GetItem(ItemName : String): PLuaRecordInfo;
 begin
-  result := PLuaRecordInfo(fItems.WordData[ItemName]);
+  result := PLuaRecordInfo(fItems.WordData[AnsiString(ItemName)]);
 end;
 
 constructor TLuaRecordTypesList.Create;
@@ -667,25 +670,25 @@ begin
   inherited Destroy;
 end;
 
-function TLuaRecordTypesList.Add(ItemName: AnsiString; LuaParent : PLuaRecordInfo = nil): PLuaRecordInfo;
+function TLuaRecordTypesList.Add(ItemName: String; LuaParent : PLuaRecordInfo = nil): PLuaRecordInfo;
 begin
-  result := PLuaRecordInfo(fItems.WordData[ItemName]);
+  result := PLuaRecordInfo(fItems.WordData[AnsiString(ItemName)]);
   if not assigned(result) then
     begin
       plua_newRecordInfo(result);
       result^.Parent := LuaParent;
       result^.RecordName := ItemName;
-      fItems.AddWord(ItemName)^.data := result;
+      fItems.AddWord(AnsiString(ItemName))^.data := result;
       fItemList.Add(result);
     end;
 end;
 
-procedure TLuaRecordTypesList.Remove(ItemName: AnsiString);
+procedure TLuaRecordTypesList.Remove(ItemName: String);
 var
   wd : PWordListSymbol;
   ci : PLuaRecordInfo;
 begin
-  wd := fItems.WordSymbol[ItemName];
+  wd := fItems.WordSymbol[AnsiString(ItemName)];
   if (assigned(wd)) and (assigned(wd^.data)) and (wd^.eow) then
     begin
       ci := PLuaRecordInfo(wd^.data);
