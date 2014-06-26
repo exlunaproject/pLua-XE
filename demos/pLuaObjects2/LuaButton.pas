@@ -6,7 +6,7 @@ uses
   Classes, SysUtils, lua, pLuaObject, plua, Buttons, StdCtrls;
 
 procedure RegisterLuaButton(L : Plua_State);
-procedure RegisterExistingButton(L : Plua_State; InstanceName : AnsiString; Instance : TButton);
+procedure RegisterExistingButton(L : Plua_State; InstanceName : String; Instance : TButton);
 
 implementation
 
@@ -196,7 +196,7 @@ begin
   plua_registerclass(L, ButtonInfo);
 end;
 
-procedure RegisterExistingButton(L: Plua_State; InstanceName : AnsiString; Instance: TButton);
+procedure RegisterExistingButton(L: Plua_State; InstanceName : String; Instance: TButton);
 begin
   TButtonDelegate.Create(plua_registerExisting(L, InstanceName, Instance, @ButtonInfo), Instance);
 end;

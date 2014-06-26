@@ -5,6 +5,9 @@ unit pLuaObject;
   Modifications copyright (c) 2010-2014 Felipe Daragon
   
   License: MIT (http://opensource.org/licenses/mit-license.php)
+
+  Changes:
+  * 26.06.2014, FD - Changed to work with string instead of ansistring.
 }
 
 {$IFDEF FPC}
@@ -29,19 +32,19 @@ type
   PLuaClassInfo = ^TLuaClassInfo;
   PLuaClassProperty = ^TLuaClassProperty;
   TLuaClassProperty = record
-    PropName : AnsiString;
+    PropName : String;
     Reader   : plua_PropertyReader;
     Writer   : plua_PropertyWriter;
   end;
   
   TLuaClassMethod = record
-    MethodName : AnsiString;
+    MethodName : String;
     wrapper    : plua_MethodWrapper;
   end;
   
   TLuaClassInfo = record
     Parent      : PLuaClassInfo;
-    ClassName   : AnsiString;
+    ClassName   : String;
     New         : plua_ClassConstructor;
     Release     : plua_ClassDestructor;
     PropHandlers: TWordList;
@@ -71,14 +74,14 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    function  GetPropReader(aClassInfo : PLuaClassInfo; aPropertyName : AnsiString) : plua_PropertyReader;
-    function  GetPropWriter(aClassInfo : PLuaClassInfo; aPropertyName : AnsiString; out ReadOnly : Boolean) : plua_PropertyWriter;
+    function  GetPropReader(aClassInfo : PLuaClassInfo; aPropertyName : String) : plua_PropertyReader;
+    function  GetPropWriter(aClassInfo : PLuaClassInfo; aPropertyName : String; out ReadOnly : Boolean) : plua_PropertyWriter;
 
     function  GetInfo(l : Plua_State; InstanceObject : TObject) : PLuaInstanceInfo;
 
     function  Add(aClassInfo : TLuaClassInfo) : Integer;
-    procedure Remove(aClassName : AnsiString);
-    function  IndexOf(aClassName : AnsiString) : Integer;
+    procedure Remove(aClassName : String);
+    function  IndexOf(aClassName : String) : Integer;
     procedure Clear;
     property  Count : integer read GetCount;
     property  LClassInfo[index : integer]:PLuaClassInfo read GetClassInfo; default;
@@ -91,11 +94,11 @@ type
     FInstanceInfo : PLuaInstanceInfo;
     FObj          : TObject;
     
-    function  EventExists( EventName :AnsiString ) : Boolean;
-    function  CallEvent( EventName :AnsiString ) : Integer; overload;
-    function  CallEvent( EventName :AnsiString;
+    function  EventExists( EventName :String ) : Boolean;
+    function  CallEvent( EventName :String ) : Integer; overload;
+    function  CallEvent( EventName :String;
                          const Args: array of Variant ) : Integer; overload;
-    function  CallEvent( EventName :AnsiString;
+    function  CallEvent( EventName :String;
                          const Args: array of Variant;
                          Results : PVariantArray = nil):Integer; overload;
   public
@@ -111,18 +114,18 @@ type
   private
     function GetCount: Integer;
     function GetIndexedItem(index : integer): PLuaClassInfo;
-    function GetItem(ItemName : AnsiString): PLuaClassInfo;
+    function GetItem(ItemName : String): PLuaClassInfo;
   public
     constructor Create;
     destructor Destroy; override;
 
-    function  Add(ItemName : AnsiString; LuaParent : PLuaClassInfo = nil) : PLuaClassInfo;
-    procedure Remove(ItemName : AnsiString);
+    function  Add(ItemName : String; LuaParent : PLuaClassInfo = nil) : PLuaClassInfo;
+    procedure Remove(ItemName : String);
     procedure Clear;
 
     procedure RegisterTo(L : PLua_State);
 
-    property Item[ItemName : AnsiString] : PLuaClassInfo read GetItem; default;
+    property Item[ItemName : String] : PLuaClassInfo read GetItem; default;
     property IndexedItem[index : integer] : PLuaClassInfo read GetIndexedItem;
     property Count : Integer read GetCount;
   end;
@@ -133,17 +136,17 @@ procedure plua_initClassInfo( var ClassInfo : TLuaClassInfo);
 procedure plua_releaseClassInfo( var ClassInfoPointer : PLuaClassInfo);
 
 procedure plua_AddClassProperty( var ClassInfo : TLuaClassInfo;
-                                 propertyName : AnsiString;
+                                 propertyName : String;
                                  Reader   : plua_PropertyReader;
                                  Writer   : plua_PropertyWriter );
 procedure plua_AddClassMethod( var ClassInfo : TLuaClassInfo;
-                               methodName : AnsiString;
+                               methodName : String;
                                wrapper : plua_MethodWrapper );
 
 function plua_getObject( l : PLua_State; idx : Integer) : TObject;
 function plua_getObjectInfo( l : PLua_State; idx : Integer) : PLuaInstanceInfo; overload;
 
-function plua_registerExisting( l : PLua_State; InstanceName : AnsiString;
+function plua_registerExisting( l : PLua_State; InstanceName : String;
                                 ObjectInstance : TObject;
                                 classInfo : PLuaClassInfo;
                                 FreeOnGC : Boolean = false) : PLuaInstanceInfo;
@@ -155,9 +158,9 @@ function plua_pushexisting( l : PLua_State;
 function  plua_PushObject(ObjectInfo : PLuaInstanceInfo) : Boolean;
 function  plua_GetObjectInfo(l : Plua_State; InstanceObject : TObject) : PLuaInstanceInfo; overload;
 function  plua_ObjectEventExists( ObjectInfo : PLuaInstanceInfo;
-                                  EventName :AnsiString ) : Boolean;
+                                  EventName :String ) : Boolean;
 function  plua_CallObjectEvent( ObjectInfo : PLuaInstanceInfo;
-                                EventName :AnsiString;
+                                EventName :String;
                                 const Args: array of Variant;
                                 Results : PVariantArray = nil):Integer;
 
@@ -202,7 +205,7 @@ begin
 
   propName := lua_tostring(l, 2);
   propValueStart := 3;
-  reader := LuaClasses.GetPropReader(cInfo^.ClassInfo, ansistring(propName));
+  reader := LuaClasses.GetPropReader(cInfo^.ClassInfo, propName);
   if assigned(reader) then
     result := reader(obj, l, propValueStart, pcount)
   else
@@ -241,7 +244,7 @@ begin
 
   propName := lua_tostring(l, 2);
   propValueStart := 3;
-  writer := LuaClasses.GetPropWriter(cInfo^.ClassInfo, ansistring(propName), bReadOnly);
+  writer := LuaClasses.GetPropWriter(cInfo^.ClassInfo, propName, bReadOnly);
   if assigned(writer) then
     result := writer(obj, l, propValueStart, pcount)
   else
@@ -318,13 +321,13 @@ begin
 // TODO - Add parent method calls in
   for i := 0 to Length(cInfo^.Methods)-1 do
     begin
-      lua_pushstring(L, string(cInfo^.Methods[i].MethodName));
-      lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper)); // FD: 16/05/2010, cInfo to @cInfo 
+      lua_pushstring(L, cInfo^.Methods[i].MethodName);
+      lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper));
       lua_pushcclosure(L, @plua_call_class_method, 1);
       lua_rawset(l, -3);
     end;
 
-  luaL_getmetatable(l, PAnsiChar(cinfo^.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(cinfo^.ClassName)+'_mt'));
   lua_setmetatable(l, -2);
 
   result := 1;
@@ -361,17 +364,17 @@ var
 begin
   lidx := LuaClasses.Add(classInfo);
 
-  lua_pushstring(l, string(classInfo.ClassName));
+  lua_pushstring(l, classInfo.ClassName);
   lua_newtable(l);
 
-  luaL_newmetatable(l, PAnsiChar(classInfo.ClassName+'_mt'));
+  luaL_newmetatable(l, PAnsiChar(AnsiString(classInfo.ClassName)+'_mt'));
   lua_setmetatable(l, -2);
   lua_settable(l, LUA_GLOBALSINDEX);
   
-  luaL_getmetatable(l, PAnsiChar(classInfo.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(classInfo.ClassName)+'_mt'));
   midx := lua_gettop(l);
 
-  lua_pushstring(l, string(classInfo.ClassName));
+  lua_pushstring(l, classInfo.ClassName);
   lua_gettable(l, LUA_GLOBALSINDEX);
   tidx := lua_gettop(l);
 
@@ -429,7 +432,7 @@ begin
 end;
 
 procedure plua_AddClassProperty(var ClassInfo: TLuaClassInfo;
-  propertyName: AnsiString; Reader: plua_PropertyReader;
+  propertyName: String; Reader: plua_PropertyReader;
   Writer: plua_PropertyWriter);
 var
   idx : integer;
@@ -439,11 +442,11 @@ begin
   ClassInfo.Properties[idx].PropName := propertyName;
   ClassInfo.Properties[idx].Reader   := Reader;
   ClassInfo.Properties[idx].Writer   := Writer;
-  ClassInfo.PropHandlers.AddWord(propertyName)^.data := pointer(PtrInt(idx));
+  ClassInfo.PropHandlers.AddWord(ansistring(propertyName))^.data := pointer(PtrInt(idx));
 end;
 
 procedure plua_AddClassMethod(var ClassInfo: TLuaClassInfo;
-  methodName: AnsiString; wrapper: plua_MethodWrapper);
+  methodName: String; wrapper: plua_MethodWrapper);
 var
   idx : integer;
 begin
@@ -475,7 +478,7 @@ begin
   lua_pop(l, 1);
 end;
 
-function plua_registerExisting(l: PLua_State; InstanceName: AnsiString;
+function plua_registerExisting(l: PLua_State; InstanceName: String;
   ObjectInstance: TObject; classInfo: PLuaClassInfo;
   FreeOnGC : Boolean = false) : PLuaInstanceInfo;
 var
@@ -486,7 +489,7 @@ begin
   instance := plua_GetObjectInfo(l, ObjectInstance);
   if assigned(instance) then
     begin
-      lua_pushstring(l, string(InstanceName));
+      lua_pushstring(l, InstanceName);
       plua_PushObject(instance);
       lua_settable(l, LUA_GLOBALSINDEX);
       result := instance;
@@ -504,7 +507,7 @@ begin
 
   LuaObjects.Add(pointer(instance));
 
-  lua_pushstring(l, string(InstanceName));
+  lua_pushstring(l, InstanceName);
   lua_newtable(L);
   instance^.LuaRef := luaL_ref(L, LUA_REGISTRYINDEX);
   lua_rawgeti(l, LUA_REGISTRYINDEX, instance^.LuaRef);
@@ -521,13 +524,13 @@ begin
 // TODO - Add parent method calls in
   for i := 0 to Length(cInfo^.Methods)-1 do
     begin
-      lua_pushstring(L, string(cInfo^.Methods[i].MethodName));
-      lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper)); // FD: 16/05/2010, cInfo to @cInfo
+      lua_pushstring(L, cInfo^.Methods[i].MethodName);
+      lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper));
       lua_pushcclosure(L, @plua_call_class_method, 1);
       lua_rawset(l, -3);
     end;
 
-  luaL_getmetatable(l, PAnsiChar(cinfo^.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(ansistring(cinfo^.ClassName)+'_mt'));
   lua_setmetatable(l, -2);
 
   lua_settable(l, LUA_GLOBALSINDEX );
@@ -575,13 +578,13 @@ begin
 // TODO - Add parent method calls in
   for i := 0 to Length(cInfo^.Methods)-1 do
     begin
-      lua_pushstring(L, string(cInfo^.Methods[i].MethodName));
-      lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper)); // FD: 16/05/2010, cInfo to @cInfo
+      lua_pushstring(L, cInfo^.Methods[i].MethodName);
+      lua_pushinteger(l, PtrInt(@cInfo^.Methods[i].wrapper));
       lua_pushcclosure(L, @plua_call_class_method, 1);
       lua_rawset(l, -3);
     end;
 
-  luaL_getmetatable(l, PAnsiChar(cinfo^.ClassName+'_mt'));
+  luaL_getmetatable(l, PAnsiChar(AnsiString(cinfo^.ClassName)+'_mt'));
   lua_setmetatable(l, -2);
 end;
 
@@ -600,15 +603,15 @@ begin
 end;
 
 function plua_ObjectEventExists(ObjectInfo: PLuaInstanceInfo;
-  EventName: AnsiString): Boolean;
+  EventName: String): Boolean;
 begin
   plua_PushObject(ObjectInfo);
-  result := plua_functionexists(ObjectInfo^.l, string(EventName), lua_gettop(ObjectInfo^.l));
+  result := plua_functionexists(ObjectInfo^.l, EventName, lua_gettop(ObjectInfo^.l));
   lua_pop(ObjectInfo^.L, 1);
 end;
 
 function plua_CallObjectEvent(ObjectInfo: PLuaInstanceInfo;
-  EventName: AnsiString; const Args: array of Variant; Results: PVariantArray
+  EventName: String; const Args: array of Variant; Results: PVariantArray
   ): Integer;
 var
   idx : integer;
@@ -618,7 +621,7 @@ begin
     exit;
   plua_PushObject(ObjectInfo);
   idx := lua_gettop(ObjectInfo^.l);
-  result := plua_callfunction(ObjectInfo^.l, string(EventName), args, results, idx);
+  result := plua_callfunction(ObjectInfo^.l, EventName, args, results, idx);
 end;
 
 function plua_GetEventDeletage(Obj: TObject): TLuaObjectEventDelegate;
@@ -677,14 +680,14 @@ begin
 end;
 
 function TLuaClassList.GetPropReader(aClassInfo: PLuaClassInfo;
-  aPropertyName: AnsiString): plua_PropertyReader;
+  aPropertyName: String): plua_PropertyReader;
 var
   pi : PtrInt;
   ei : PWordListSymbol;
 begin
 // TODO - Add parent property calls in
   result := nil;
-  ei := aClassInfo^.PropHandlers.WordSymbol[aPropertyName];
+  ei := aClassInfo^.PropHandlers.WordSymbol[ansistring(aPropertyName)];
   if not assigned(ei) then
     begin
       if assigned(aClassInfo^.UnhandledReader) then
@@ -697,7 +700,7 @@ begin
 end;
 
 function TLuaClassList.GetPropWriter(aClassInfo: PLuaClassInfo;
-  aPropertyName: AnsiString; out ReadOnly : Boolean): plua_PropertyWriter;
+  aPropertyName: String; out ReadOnly : Boolean): plua_PropertyWriter;
 var
   pi : PtrInt;
   ei : PWordListSymbol;
@@ -705,7 +708,7 @@ begin
 // TODO - Add parent property calls in
   ReadOnly := false;
   result := nil;
-  ei := aClassInfo^.PropHandlers.WordSymbol[aPropertyName];
+  ei := aClassInfo^.PropHandlers.WordSymbol[ansistring(aPropertyName)];
   if not assigned(ei) then
     begin
       if assigned(aClassInfo^.UnhandledWriter) then
@@ -715,7 +718,7 @@ begin
   pi := PtrInt(ei^.data);
   if (pi >= 0) and (pi < length(aClassInfo^.Properties)) then
     begin
-      ReadOnly := @aClassInfo^.Properties[pi].Writer = nil; // FD: 16/05/2010, aClassInfo to @aClassInfo
+      ReadOnly := @aClassInfo^.Properties[pi].Writer = nil;
       result := aClassInfo^.Properties[pi].Writer;
     end;
 end;
@@ -750,7 +753,7 @@ begin
   ci^ := aClassInfo;
 end;
 
-procedure TLuaClassList.Remove(aClassName: AnsiString);
+procedure TLuaClassList.Remove(aClassName: String);
 var
   idx : integer;
   ci  : PLuaClassInfo;
@@ -764,7 +767,7 @@ begin
     end;
 end;
 
-function TLuaClassList.IndexOf(aClassName: AnsiString): Integer;
+function TLuaClassList.IndexOf(aClassName: String): Integer;
 var
   i : Integer;
 begin
@@ -772,7 +775,7 @@ begin
   i := 0;
   while (result = -1) and (i < count) do
     begin
-      if CompareText(string(aClassName), string(LClassInfo[i]^.ClassName)) = 0 then
+      if CompareText(aClassName, LClassInfo[i]^.ClassName) = 0 then
         result := i;
       inc(i);
     end;
@@ -795,23 +798,23 @@ var
 
 { TLuaObjectEventDelegate }
 
-function TLuaObjectEventDelegate.EventExists(EventName: AnsiString): Boolean;
+function TLuaObjectEventDelegate.EventExists(EventName: String): Boolean;
 begin
   result := plua_ObjectEventExists(FInstanceInfo, EventName);
 end;
 
-function TLuaObjectEventDelegate.CallEvent(EventName: AnsiString): Integer;
+function TLuaObjectEventDelegate.CallEvent(EventName: String): Integer;
 begin
   result := CallEvent(EventName, [], nil);
 end;
 
-function TLuaObjectEventDelegate.CallEvent(EventName: AnsiString;
+function TLuaObjectEventDelegate.CallEvent(EventName: String;
   const Args: array of Variant): Integer;
 begin
   result := CallEvent(EventName, Args, nil);
 end;
 
-function TLuaObjectEventDelegate.CallEvent(EventName: AnsiString;
+function TLuaObjectEventDelegate.CallEvent(EventName: String;
   const Args: array of Variant; Results: PVariantArray): Integer;
 begin
   result := plua_CallObjectEvent(FInstanceInfo, EventName, Args, Results);
@@ -844,9 +847,9 @@ begin
   result := PLuaClassInfo(fItemList[index]);
 end;
 
-function TLuaClassTypesList.GetItem(ItemName : AnsiString): PLuaClassInfo;
+function TLuaClassTypesList.GetItem(ItemName : String): PLuaClassInfo;
 begin
-  result := PLuaClassInfo(fItems.WordData[ItemName]);
+  result := PLuaClassInfo(fItems.WordData[AnsiString(ItemName)]);
 end;
 
 constructor TLuaClassTypesList.Create;
@@ -863,25 +866,25 @@ begin
   inherited Destroy;
 end;
 
-function TLuaClassTypesList.Add(ItemName: AnsiString; LuaParent : PLuaClassInfo = nil): PLuaClassInfo;
+function TLuaClassTypesList.Add(ItemName: String; LuaParent : PLuaClassInfo = nil): PLuaClassInfo;
 begin
-  result := PLuaClassInfo(fItems.WordData[ItemName]);
+  result := PLuaClassInfo(fItems.WordData[AnsiString(ItemName)]);
   if not assigned(result) then
     begin
       plua_newClassInfo(result);
       result^.Parent := LuaParent;
       result^.ClassName := ItemName;
-      fItems.AddWord(ItemName)^.data := result;
+      fItems.AddWord(ansistring(ItemName))^.data := result;
       fItemList.Add(result);
     end;
 end;
 
-procedure TLuaClassTypesList.Remove(ItemName: AnsiString);
+procedure TLuaClassTypesList.Remove(ItemName: String);
 var
   wd : PWordListSymbol;
   ci : PLuaClassInfo;
 begin
-  wd := fItems.WordSymbol[ItemName];
+  wd := fItems.WordSymbol[ansistring(ItemName)];
   if (assigned(wd)) and (assigned(wd^.data)) and (wd^.eow) then
     begin
       ci := PLuaClassInfo(wd^.data);
