@@ -843,7 +843,7 @@ begin
   lua_createtable(L, 0, 0);
 end;
 
-procedure lua_register(L : Plua_State; n : PAnsiChar; f : lua_CFunction);
+procedure lua_register(L : Plua_State; n : PAnsiChar; f : lua_CFunction); overload;
 begin
   lua_pushcfunction(L, f);
   lua_setglobal(L, n);
@@ -899,7 +899,7 @@ begin
   lua_isnoneornil := lua_type(L, n) <= 0;
 end;
 
-procedure lua_pushliteral(L : Plua_State; s : PAnsiChar);
+procedure lua_pushliteral(L : Plua_State; s : PAnsiChar); overload;
 begin
   lua_pushlstring(L, s, StrLen(s));
 end;
@@ -1073,17 +1073,17 @@ begin
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
 end;
 
-procedure lua_pushstring(L: PLua_State; const s : string);
+procedure lua_pushstring(L: PLua_State; const s : string); overload;
 begin
   lua_pushstring(L, PAnsiChar(ansistring(string(s))));
 end;
 
-procedure lua_pushliteral(L : Plua_State; s : string);
+procedure lua_pushliteral(L : Plua_State; s : string); overload;
 begin
   lua_pushliteral(L, PAnsiChar(ansistring(string(s))));
 end;
 
-procedure lua_register(L : Plua_State; n : string; f : lua_CFunction);
+procedure lua_register(L : Plua_State; n : string; f : lua_CFunction); overload;
 begin
   lua_register(L, PAnsiChar(ansistring(string(n))), f);
 end;

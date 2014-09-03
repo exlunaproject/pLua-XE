@@ -461,8 +461,8 @@ begin
   while vn <> nil do
   begin
     // lua_pop(L,1);
-    // writeln('Matching var:'+vn);
-    if vn = PAnsiChar(ansistring(varName)) then
+    //writeln('Matching against var:'+varName);
+    if strpas(vn) = varName then
     begin
       found := True;
       if found = True then
@@ -474,7 +474,7 @@ begin
       finally
         lua_pop(L, 1);
       end;
-      // writeln('found!'+vn+';'+vv);
+      //writeln('found!'+vn+';'+value);
       Result := value;
       Exit;
     end;
@@ -484,13 +484,13 @@ begin
   end;
   if found = False then
   begin // local not found, tries to get global with the same name
-    // writeln('not found locally:'+vn);
+    //writeln(varname+' not found locally:'+vn);
     try
       value := plua_GetGlobal(L, varName);
     except
     end;
     Result := value;
-    // writeln('global search for '+vn+' returned):'+result);
+    //writeln('global search for '+vn+' returned):'+result);
   end;
 end;
 
@@ -504,7 +504,6 @@ var
 begin
   found := False;
   NewValue := AValue;
-
   if lua_getstack(L, 1, @ar) <> 1 then
   begin
     Exit;
@@ -513,13 +512,13 @@ begin
   vn := lua_getlocal(L, @ar, i);
   while vn <> nil do
   begin
-    if vn = PAnsiChar(ansistring(varName)) then
+    if strpas(vn) = varName then
     begin
       found := True;
       if found = True then
       begin // hides H2077 compiler warning
       end;
-      // writeln('Found var:'+varname+' changing to:'+newvalue);
+      //writeln('Found var:'+varname+' changing to:'+newvalue);
       // lua_pop(L,1);
       try
         plua_pushvariant(L, NewValue);
@@ -527,7 +526,7 @@ begin
       finally
         lua_pop(L, 1);
       end;
-      // writeln('Changed var:'+varname+' to:'+newvalue);
+      //writeln('Changed var:'+varname+' to:'+newvalue);
       Exit;
     end;
     lua_pop(L, 1);
