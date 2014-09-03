@@ -462,7 +462,7 @@ begin
   begin
     // lua_pop(L,1);
     //writeln('Matching against var:'+varName);
-    if strpas(vn) = varName then
+    if strpas(vn) = ansistring(varName) then
     begin
       found := True;
       if found = True then
@@ -512,7 +512,7 @@ begin
   vn := lua_getlocal(L, @ar, i);
   while vn <> nil do
   begin
-    if strpas(vn) = varName then
+    if strpas(vn) = ansistring(varName) then
     begin
       found := True;
       if found = True then
