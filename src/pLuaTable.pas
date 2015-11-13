@@ -1,7 +1,7 @@
 {
   Useful functions for getting/setting the value of Lua table fields
 
-  Copyright (c) 2003-2014 Felipe Daragon
+  Copyright (c) 2003-2015 Felipe Daragon
   License: MIT (http://opensource.org/licenses/mit-license.php)
 }
 
@@ -23,30 +23,32 @@ type
     function ReadBool(FieldName: string; ADefaultValue: boolean): boolean;
     function ReadVariant(FieldName: string; ADefaultValue: Variant): Variant;
     procedure GetIndexFromTop;
-    constructor Create(L: PLua_State;GetIdxFromTop:boolean=false);
+    constructor Create(L: PLua_State; GetIdxFromTop: boolean = false);
     destructor Destroy; override;
     property TableIndex: integer read fTableIndex;
   end;
 
-// Gets the value of a table field
-function plua_GetFieldValueStr(L: PLua_State; idx: Integer; FieldName: string;
+  // Gets the value of a table field
+function plua_GetFieldValueStr(L: PLua_State; idx: integer; FieldName: string;
   ADefaultValue: string = ''): string;
-function plua_GetFieldValueInt(L: PLua_State; idx: Integer; FieldName: string;
-  ADefaultValue: Integer): Integer;
-function plua_GetFieldValueBool(L: PLua_State; idx: Integer; FieldName: string;
+function plua_GetFieldValueInt(L: PLua_State; idx: integer; FieldName: string;
+  ADefaultValue: integer): integer;
+function plua_GetFieldValueBool(L: PLua_State; idx: integer; FieldName: string;
   ADefaultValue: boolean): boolean;
-function plua_GetFieldValueVariant(L: PLua_State; idx: Integer;
+function plua_GetFieldValueVariant(L: PLua_State; idx: integer;
   FieldName: string; ADefaultValue: Variant): Variant;
 
 // Sets the value of a table field
 procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: string); overload;
 procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
-  AValue: Integer); overload;
+  AValue: integer); overload;
 procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: boolean); overload;
-procedure plua_SetFieldValue(L:plua_State;  FieldName:string;
-  ATable:plual_reg); overload;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
+  ATable: plual_reg); overload;
+procedure plua_SetFieldValue(L: PLua_State; Name: string; Reader: lua_CFunction;
+  Writer: lua_CFunction); overload;
 procedure plua_SetFieldValueV(L: PLua_State; FieldName: string;
   AValue: Variant);
 
@@ -60,7 +62,7 @@ begin
 end;
 
 procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
-  AValue: Integer); overload;
+  AValue: integer); overload;
 begin
   lua_pushinteger(L, AValue);
   lua_setfield(L, -2, FieldName);
@@ -73,12 +75,33 @@ begin
   lua_setfield(L, -2, FieldName);
 end;
 
-procedure plua_SetFieldValue(L:plua_State;  FieldName:string;
-  ATable:plual_reg); overload;
+procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
+  ATable: plual_reg); overload;
 begin
   lua_newtable(L);
   lual_register(L, nil, ATable);
   lua_setfield(L, -2, FieldName);
+end;
+
+procedure plua_SetFieldValue(L: PLua_State; Name: string; Reader: lua_CFunction;
+  Writer: lua_CFunction); overload;
+var
+  tidx, midx: integer;
+begin
+  lua_newtable(L);
+  tidx := lua_gettop(L);
+
+  lua_newtable(L);
+  midx := lua_gettop(L);
+
+  lua_pushstring(L, '__index');
+  lua_pushcfunction(L, Reader);
+  lua_rawset(L, midx);
+  lua_pushstring(L, '__newindex');
+  lua_pushcfunction(L, Writer);
+  lua_rawset(L, midx);
+  lua_setmetatable(L, tidx);
+  lua_setfield(L, -2, Name);
 end;
 
 procedure plua_SetFieldValueV(L: PLua_State; FieldName: string;
@@ -88,7 +111,7 @@ begin
   lua_setfield(L, -2, FieldName);
 end;
 
-function plua_GetFieldValueStr(L: PLua_State; idx: Integer; FieldName: string;
+function plua_GetFieldValueStr(L: PLua_State; idx: integer; FieldName: string;
   ADefaultValue: string = ''): string;
 begin
   lua_pushstring(L, FieldName);
@@ -99,8 +122,8 @@ begin
     Result := lua_tostring(L, -1);
 end;
 
-function plua_GetFieldValueInt(L: PLua_State; idx: Integer; FieldName: string;
-  ADefaultValue: Integer): Integer;
+function plua_GetFieldValueInt(L: PLua_State; idx: integer; FieldName: string;
+  ADefaultValue: integer): integer;
 begin
   lua_pushstring(L, FieldName);
   lua_gettable(L, idx);
@@ -110,7 +133,7 @@ begin
     Result := lua_tointeger(L, -1);
 end;
 
-function plua_GetFieldValueBool(L: PLua_State; idx: Integer; FieldName: string;
+function plua_GetFieldValueBool(L: PLua_State; idx: integer; FieldName: string;
   ADefaultValue: boolean): boolean;
 begin
   lua_pushstring(L, FieldName);
@@ -121,7 +144,7 @@ begin
     Result := lua_toboolean(L, -1);
 end;
 
-function plua_GetFieldValueVariant(L: PLua_State; idx: Integer;
+function plua_GetFieldValueVariant(L: PLua_State; idx: integer;
   FieldName: string; ADefaultValue: Variant): Variant;
 begin
   lua_pushstring(L, FieldName);
@@ -137,27 +160,27 @@ end;
 function TLuaTable.ReadString(FieldName: string;
   ADefaultValue: string = ''): string;
 begin
-  result := plua_GetFieldValueStr(fLuaState, fTableIndex, FieldName,
+  Result := plua_GetFieldValueStr(fLuaState, fTableIndex, FieldName,
     ADefaultValue);
 end;
 
 function TLuaTable.ReadInteger(FieldName: string;
   ADefaultValue: integer): integer;
 begin
-  result := plua_GetFieldValueInt(fLuaState, fTableIndex, FieldName,
+  Result := plua_GetFieldValueInt(fLuaState, fTableIndex, FieldName,
     ADefaultValue);
 end;
 
 function TLuaTable.ReadBool(FieldName: string; ADefaultValue: boolean): boolean;
 begin
-  result := plua_GetFieldValueBool(fLuaState, fTableIndex, FieldName,
+  Result := plua_GetFieldValueBool(fLuaState, fTableIndex, FieldName,
     ADefaultValue);
 end;
 
 function TLuaTable.ReadVariant(FieldName: string;
   ADefaultValue: Variant): Variant;
 begin
-  result := plua_GetFieldValueVariant(fLuaState, fTableIndex, FieldName,
+  Result := plua_GetFieldValueVariant(fLuaState, fTableIndex, FieldName,
     ADefaultValue);
 end;
 
@@ -166,11 +189,11 @@ begin
   fTableIndex := lua_gettop(fLuaState);
 end;
 
-constructor TLuaTable.Create(L: PLua_State;GetIdxFromTop:boolean=false);
+constructor TLuaTable.Create(L: PLua_State; GetIdxFromTop: boolean = false);
 begin
   fLuaState := L;
   if GetIdxFromTop then
-   GetIndexFromTop;
+    GetIndexFromTop;
 end;
 
 destructor TLuaTable.Destroy;
