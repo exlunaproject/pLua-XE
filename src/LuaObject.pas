@@ -3,7 +3,7 @@ unit LuaObject;
 {
   TLuaObject
   Copyright (c) 2007 Jeremy Darling
-  Modifications copyright (c) 2010-2014 Felipe Daragon
+  Modifications copyright (c) 2010-2015 Felipe Daragon
   
   This unit is provided to support the older version of pLua. The new
   features presented within pLuaObject give more flexability when
@@ -13,6 +13,7 @@ unit LuaObject;
   License: MIT (http://opensource.org/licenses/mit-license.php) 
   
   Changes:
+  * 20.11.2015, FD - Added LocateEvent method
   * 17.06.2014, FD - Changed to work with string instead of ansistring.
 }
 
@@ -55,6 +56,7 @@ type
     procedure CallEvent(EventName : String); overload;
     function  CallEvent(EventName : String; args : Array of Variant; Results: PVariantArray = nil) : Integer; overload;
     function  EventExists(EventName: String): Boolean;
+    function  LocateEvent(EventName: String): Boolean;
 
     property LState : PLua_State read L;
     property LRef:integer read FLuaReference;
@@ -151,6 +153,19 @@ begin
   PushSelf;
   result := plua_functionexists(L, EventName, lua_gettop(L));
   lua_pop(L, 1);
+end;
+
+function TLuaObject.LocateEvent(EventName: String): Boolean;
+var
+  idx : Integer;
+begin
+  result := EventExists(EventName);
+  if result = true then begin
+    PushSelf;
+    idx := lua_gettop(L);
+    lua_pushstring(L, EventName);
+    lua_rawget(L, idx);
+  end;
 end;
 
 function TLuaObject.GetLuaProp(PropName : String): Variant;
