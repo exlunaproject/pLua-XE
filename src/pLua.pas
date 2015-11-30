@@ -8,6 +8,7 @@ unit pLua;
   Same as the original code by Jeremy Darling.
 
   Changes:
+  * 30.11.2015, FD - Fixed occasional crash with plua_functionexists.
   * 26.06.2014, FD - Changed to work with string instead of ansistring.
   * 18.06.2014, FD - Added several functions for getting/setting the
   value of local/global Lua variables
@@ -128,7 +129,8 @@ function plua_functionexists(L: PLua_State; FunctionName: string;
 begin
   lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
-  Result := lua_isfunction(L, lua_gettop(L));
+  Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
+  lua_pop(L, 1); // FD: added lua_isnil check and lua_pop. Fixes occasional exception
   if Result then
   begin
     Result := not lua_iscfunction(L, lua_gettop(L));
