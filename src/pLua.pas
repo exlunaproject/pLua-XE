@@ -2,12 +2,14 @@ unit pLua;
 
 {
   Copyright (c) 2007 Jeremy Darling
-  Modifications copyright (c) 2010-2014 Felipe Daragon
+  Modifications copyright (c) 2010-2020 Felipe Daragon
 
   License: MIT (http://opensource.org/licenses/mit-license.php)
   Same as the original code by Jeremy Darling.
 
   Changes:
+
+  * 16.09.2020, FD - Fixed occasional crash with plua_SetLocal.  
   * 30.11.2015, FD - Fixed occasional crash with plua_functionexists.
   * 26.06.2014, FD - Changed to work with string instead of ansistring.
   * 18.06.2014, FD - Added several functions for getting/setting the
@@ -71,8 +73,9 @@ function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
 { FD Additions }
 
 procedure plua_dostring(L: PLua_State; AString: String);
-
 function plua_AnyToString(L: PLua_State; idx: Integer): string;
+function plua_luatypetokeyword(const LuaType: integer): string;
+function plua_keywordtoluatype(const keyword: string): integer;
 
 // Gets or sets the value of local and global Lua variables
 function plua_GetLuaVar(L: PLua_State; idx: Integer): Variant;
@@ -82,6 +85,34 @@ procedure plua_SetGlobal(L: PLua_State; varName: string; const AValue: Variant);
 procedure plua_SetLocal(L: PLua_State; varName: string; const AValue: Variant);
 
 implementation
+
+function plua_luatypetokeyword(const LuaType: integer): string;
+begin
+  result := emptystr;
+  case LuaType of
+    LUA_TSTRING:
+      result := 'string';
+    LUA_TBOOLEAN:
+      result := 'boolean';
+    LUA_TNUMBER:
+      result := 'integer';
+    LUA_TNIL:
+      result := 'nil';
+  end;
+end;
+
+function plua_keywordtoluatype(const keyword: string): integer;
+begin
+  result := LUA_TNONE;
+  if keyword = 'string' then
+    result := LUA_TSTRING else
+  if keyword = 'boolean' then
+    result := LUA_TBOOLEAN else
+  if keyword = 'integer' then
+    result := LUA_TNUMBER else
+  if keyword = 'nil' then
+    result := LUA_TNIL;
+end;
 
 function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
 var
@@ -453,12 +484,11 @@ begin
   Result := NULL;
   found := False;
 
-  lua_getglobal(L, 'tostring'); // this fixes ocasional crash with lua_getstack
+  lua_getglobal(L, 'tostring'); // this fixes occasional crash with lua_getstack
   if lua_getstack(L, 1, @ar) <> 1 then
-  begin
     Exit;
-  end;
   i := 1;
+  // lua_pop(L, 1);
   vn := lua_getlocal(L, @ar, i);
   while vn <> nil do
   begin
@@ -506,12 +536,13 @@ var
 begin
   found := False;
   NewValue := AValue;
+  lua_getglobal(L, 'tostring'); // this fixes occasional crash with lua_getstack
   if lua_getstack(L, 1, @ar) <> 1 then
-  begin
     Exit;
-  end;
   i := 1;
+  //lua_pop(L, 1);
   vn := lua_getlocal(L, @ar, i);
+
   while vn <> nil do
   begin
     if strpas(vn) = ansistring(varName) then
@@ -538,7 +569,7 @@ begin
   end;
   if found = False then
   begin // new, local not found, tries to set global with the same name
-    // writeln('not found locally:'+valname);
+    //writeln('not found locally:'+varname);
     plua_SetGlobal(L, varName, NewValue);
   end;
 end;
