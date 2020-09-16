@@ -28,6 +28,11 @@ interface
 uses
   SysUtils, Classes, Variants, Lua;
 
+const
+  cLuaGlobalVariableStr = '[LUA_GLOBALSINDEX]';
+var
+  DefaultMaxTable, SubTableCount: Integer;
+
 type
   PtrInt = Integer;
   PtrUint = Cardinal;
@@ -83,6 +88,10 @@ function plua_GetGlobal(L: PLua_State; varName: string): Variant;
 function plua_GetLocal(L: PLua_State; varName: string): Variant;
 procedure plua_SetGlobal(L: PLua_State; varName: string; const AValue: Variant);
 procedure plua_SetLocal(L: PLua_State; varName: string; const AValue: Variant);
+
+// LuaStackToStr method from old LuaUtils project
+function plua_LuaStackToStr(L: Plua_State; Index: Integer; MaxTable: Integer; SubTableMax: Integer): string;
+function plua_dequote(const QuotedStr: string): string;
 
 implementation
 
@@ -590,5 +599,112 @@ begin
     lua_settable(L, LUA_GLOBALSINDEX);
   end;
 end;
+
+// Convert the last item at 'Index' from the stack to a string
+// nil    : nil
+// Number : FloatToStr
+// Boolean: True/False
+// stirng : "..."
+// Table  : { Key1=Value Key2=Value }
+// LuaStackToStr from LuaUtils project
+function plua_dequote(const QuotedStr: string): string;
+begin
+  Result := AnsiDequotedStr(QuotedStr, '"');
+end;
+
+function plua_LuaStackToStr(L: Plua_State; Index: Integer; MaxTable: Integer; SubTableMax: Integer): string;
+var
+  pGLobalsIndexPtr: Pointer;
+  function TableToStr(Index: Integer): string;
+  var
+    Key, Value: string;
+    Count: Integer;
+
+  begin
+    Result := '{ ';
+    Count := 0;
+    lua_pushnil(L);
+
+    // Go through the current table
+    while (lua_next(L, Index) <> 0) do
+    begin
+      Inc(Count);
+      if (Count > MaxTable) then
+      begin
+        Result := Result + '... ';
+        lua_pop(L, 2);
+        Break;
+      end;
+
+      // Key to string
+      if lua_type(L, -2) = LUA_TNUMBER then
+        Key := '[' + plua_dequote(plua_LuaStackToStr(L, -2, MaxTable, SubTableMax)) + ']'
+      else
+        Key := plua_dequote(plua_LuaStackToStr(L, -2, MaxTable, SubTableMax));
+
+      // Value to string...
+      if ((Key = '_G') or (lua_topointer(L, -1) = pGLobalsIndexPtr)) then
+        Value := cLuaGlobalVariableStr
+      else
+        Value := plua_LuaStackToStr(L, -1, MaxTable, SubTableMax);
+
+      if (lua_type(L, -1) = LUA_TFUNCTION) then
+        Result := Result + Format('%s()=%p ', [Key, lua_topointer(L, -1)])
+      else
+        Result := Result + Format('%s=%s ', [Key, Value]);
+
+      // Pop current value from stack leaving current key on top of the stack for lua_next
+      lua_pop(L, 1);
+    end;
+
+    Result := Result + '}';
+  end;
+
+begin
+  if (MaxTable < 0) then
+    MaxTable := DefaultMaxTable;
+
+  pGLobalsIndexPtr := lua_topointer(L, LUA_GLOBALSINDEX); // Retrieve globals index poiner for later conditions
+  lua_checkstack(L, SubTableMax * 3); // Ensure there is enough space on stack to work with according to user's setting
+  Index := plua_absindex(L, Index);
+
+  case (lua_type(L, Index)) of
+  LUA_TNIL:
+    Result := 'nil';
+  LUA_TNUMBER:
+    Result := Format('%g', [lua_tonumber(L, Index)]);
+  LUA_TBOOLEAN:
+    Result := BoolToStr(lua_toboolean(L, Index) <> false, True);
+  LUA_TSTRING:
+    Result := '"'+lua_tostring(L, Index)+'"';
+  LUA_TTABLE:
+  begin
+    if SubTableCount < SubTableMax then
+    begin
+      SubTableCount := SubTableCount + 1;
+      Result := TableToStr(Index);
+      SubTableCount := SubTableCount - 1;
+    end
+    else
+      Result := '[SUB_TABLE_MAX_LEVEL_HAS_BEEN_REACHED]';
+  end;
+  LUA_TFUNCTION:
+    if (lua_iscfunction(L, Index) <> false) then
+      Result := Format('CFUNC:%p', [Pointer(lua_tocfunction(L, Index))])
+    else
+      Result := Format('FUNC:%p', [lua_topointer(L, Index)]);
+  LUA_TUSERDATA:
+    Result := Format('USERDATA:%p', [lua_touserdata(L, Index)]);
+  LUA_TTHREAD:
+    Result := Format('THREAD:%p', [lua_tothread(L, Index)]);
+  LUA_TLIGHTUSERDATA:
+    Result := Format('LIGHTUSERDATA:%p', [lua_touserdata(L, Index)]);
+  else
+    Assert(False);
+  end;
+end;
+
+initialization
+  DefaultMaxTable := 256;
 
 end.
