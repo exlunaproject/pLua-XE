@@ -11,6 +11,7 @@ unit pLua;
 
   * 17.09.2020, FD - plua_functionexists now checks C function.
   Older function renamed to plua_functionexists_noc.
+                   - Added plua_pushintnumber
   * 16.09.2020, FD - Fixed occasional crash with plua_SetLocal.
   * 30.11.2015, FD - Fixed occasional crash with plua_functionexists.
   * 26.06.2014, FD - Changed to work with string instead of ansistring.
@@ -57,6 +58,8 @@ function plua_functionexists_noc(L: PLua_State; FunctionName: string;
 function plua_callfunction(L: PLua_State; FunctionName: string;
   const args: Array of Variant; results: PVariantArray = nil;
   TableIndex: Integer = LUA_GLOBALSINDEX): Integer;
+
+procedure plua_pushintnumber(L: PLua_State; N: Integer);
 
 procedure plua_pushvariant(L: PLua_State; v: Variant);
 
@@ -219,6 +222,13 @@ begin
     for i := 0 to Result - 1 do
       results^[Result - i - 1] := plua_tovariant(L, -(i + 1));
   end;
+end;
+
+// Just an alias for lua_pushnumber() - Use this if you experience conversion
+// issues with negative integers and Lua 64-bit when using lua_pushinteger()
+procedure plua_pushintnumber(L: PLua_State; N: Integer);
+begin
+  lua_pushnumber(L, N);
 end;
 
 procedure plua_pushvariant(L: PLua_State; v: Variant);

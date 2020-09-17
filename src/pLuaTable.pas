@@ -64,7 +64,7 @@ end;
 procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: integer); overload;
 begin
-  lua_pushinteger(L, AValue);
+  plua_pushintnumber(L, AValue);
   lua_setfield(L, -2, FieldName);
 end;
 
