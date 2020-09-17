@@ -151,7 +151,7 @@ end;
 function TLuaObject.EventExists(EventName: String): Boolean;
 begin
   PushSelf;
-  result := plua_functionexists(L, EventName, lua_gettop(L));
+  result := plua_functionexists_noc(L, EventName, lua_gettop(L));
   lua_pop(L, 1);
 end;
 

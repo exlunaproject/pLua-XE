@@ -9,7 +9,9 @@ unit pLua;
 
   Changes:
 
-  * 16.09.2020, FD - Fixed occasional crash with plua_SetLocal.  
+  * 17.09.2020, FD - plua_functionexists now checks C function.
+  Older function renamed to plua_functionexists_noc.
+  * 16.09.2020, FD - Fixed occasional crash with plua_SetLocal.
   * 30.11.2015, FD - Fixed occasional crash with plua_functionexists.
   * 26.06.2014, FD - Changed to work with string instead of ansistring.
   * 18.06.2014, FD - Added several functions for getting/setting the
@@ -49,6 +51,8 @@ procedure plua_RegisterLuaTable(L: PLua_State; Name: string;
 
 function plua_functionexists(L: PLua_State; FunctionName: string;
   TableIndex: Integer = LUA_GLOBALSINDEX): boolean;
+function plua_functionexists_noc(L: PLua_State; FunctionName: string;
+  TableIndex: Integer): boolean;
 
 function plua_callfunction(L: PLua_State; FunctionName: string;
   const args: Array of Variant; results: PVariantArray = nil;
@@ -167,6 +171,17 @@ end;
 function plua_functionexists(L: PLua_State; FunctionName: string;
   TableIndex: Integer): boolean;
 begin
+  lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
+  lua_pushstring(L, FunctionName);
+  lua_rawget(L, TableIndex);
+  Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
+  lua_pop(L, 1); // FD: added lua_isnil check and lua_pop. Fixes occasional exception
+end;
+
+function plua_functionexists_noc(L: PLua_State; FunctionName: string;
+  TableIndex: Integer): boolean;
+begin
+  lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
   lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
   Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
