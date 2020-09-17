@@ -174,7 +174,7 @@ end;
 function plua_functionexists(L: PLua_State; FunctionName: string;
   TableIndex: Integer): boolean;
 begin
-  lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
+  //lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
   lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
   Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
@@ -184,7 +184,7 @@ end;
 function plua_functionexists_noc(L: PLua_State; FunctionName: string;
   TableIndex: Integer): boolean;
 begin
-  lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
+  //lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
   lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
   Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
