@@ -174,9 +174,11 @@ end;
 function plua_functionexists(L: PLua_State; FunctionName: string;
   TableIndex: Integer): boolean;
 begin
-  //lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
+  if TableIndex = LUA_GLOBALSINDEX then
+    lua_getglobal(L, 'tostring'); // FD: fixes global function sometimes not being located
   lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
+
   Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
   lua_pop(L, 1); // FD: added lua_isnil check and lua_pop. Fixes occasional exception
 end;
@@ -184,11 +186,13 @@ end;
 function plua_functionexists_noc(L: PLua_State; FunctionName: string;
   TableIndex: Integer): boolean;
 begin
-  //lua_getglobal(L, 'tostring'); // FD: fixes function sometimes not being located
+  if TableIndex = LUA_GLOBALSINDEX then
+    lua_getglobal(L, 'tostring'); // FD: fixes global function sometimes not being located
   lua_pushstring(L, FunctionName);
   lua_rawget(L, TableIndex);
   Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
   lua_pop(L, 1); // FD: added lua_isnil check and lua_pop. Fixes occasional exception
+
   if Result then
   begin
     Result := not lua_iscfunction(L, lua_gettop(L));
