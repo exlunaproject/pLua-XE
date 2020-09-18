@@ -9,6 +9,7 @@ unit pLua;
 
   Changes:
 
+  * 18.09.2020, FD - Added plua_validateargs and plua_validatetype functions.
   * 17.09.2020, FD - plua_functionexists now checks C function.
   Older function renamed to plua_functionexists_noc.
                    - Added plua_pushintnumber
@@ -44,6 +45,12 @@ type
 
 type
   LuaException = class(Exception)
+  end;
+
+type
+  TLuaValidationResult = record
+    OK:boolean;
+    ErrorMessage:string;
   end;
 
 procedure plua_RegisterLuaTable(L: PLua_State; Name: string;
@@ -100,34 +107,106 @@ procedure plua_SetLocal(L: PLua_State; varName: string; const AValue: Variant);
 function plua_LuaStackToStr(L: Plua_State; Index: Integer; MaxTable: Integer; SubTableMax: Integer): string;
 function plua_dequote(const QuotedStr: string): string;
 
+// Lua validation functions
+function plua_validatetype(L: plua_State; const idx, aluatype:integer):boolean;
+function plua_validateargs(L: plua_State; var luaresult:integer; const p:array of integer;const optional:integer=0):TLuaValidationResult;
+
 implementation
+
+function plua_validatetype(L: plua_State; const idx, aluatype:integer):boolean;
+begin
+  result := lua_type(L, idx) = aluatype;
+end;
+
+// This function makes very easy to validate arguments passed to a C function
+// with just a single line
+// Usage example:
+// function str_after(L: plua_State): integer; cdecl;
+// begin
+//   if plua_validateargs(L, result, [LUA_TSTRING, LUA_TSTRING]).OK then
+//     lua_pushstring(L, after(lua_tostring(L, 1), lua_tostring(L, 2)));
+// end;
+function plua_validateargs(L: plua_State; var luaresult:integer; const p:array of integer;const optional:integer=0):TLuaValidationResult;
+var
+ i, idx, min_args, max_args, num_args:integer;
+begin
+  luaresult := 1;
+  result.OK := true;
+  num_args := lua_gettop(L);
+  min_args := (high(p) +1) -optional;
+  max_args := (high(p) +1) +optional;
+  if num_args < min_args then begin
+    result.OK := false;
+    if optional > 0 then
+    result.ErrorMessage := 'missing arguments, '+IntToStr(max_args)+' expected, '+IntToStr(optional)+' optional). ' else
+    result.ErrorMessage := 'missing arguments, '+IntToStr(min_args)+' expected';
+    luaL_error(L, PAnsiChar(AnsiString(result.ErrorMessage)));
+  end;
+  if num_args > max_args then begin
+    result.OK := false;
+    result.ErrorMessage := 'too many arguments, max '+IntToStr(max_args)+' allowed';
+    luaL_error(L, PAnsiChar(AnsiString(result.ErrorMessage)));
+  end;
+  // Use num_args instead of high(p) because we only want to validated provided arguments
+  for i := low(p) to num_args-1 do
+  begin
+    idx := i+1;
+    if plua_validatetype(L, idx, p[i]) = false then begin
+      result.OK := false;
+      result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_luatypetokeyword(p[i]);
+      luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_luatypetokeyword(p[i]))));
+    end;
+  end;
+end;
 
 function plua_luatypetokeyword(const LuaType: integer): string;
 begin
   result := emptystr;
   case LuaType of
+    LUA_TNIL:
+      result := 'nil';
     LUA_TSTRING:
       result := 'string';
     LUA_TBOOLEAN:
       result := 'boolean';
     LUA_TNUMBER:
       result := 'integer';
-    LUA_TNIL:
-      result := 'nil';
+    LUA_TTABLE:
+      result := 'table';
+    LUA_TFUNCTION:
+      result := 'function';
+    LUA_TTHREAD:
+      result := 'thread';
+    LUA_TLIGHTUSERDATA:
+      result := 'lightuserdata';
+    LUA_TUSERDATA:
+      result := 'userdata';
   end;
 end;
 
 function plua_keywordtoluatype(const keyword: string): integer;
 begin
   result := LUA_TNONE;
+  if keyword = 'none' then
+    result := LUA_TNONE else
+  if keyword = 'nil' then
+    result := LUA_TNIL else
   if keyword = 'string' then
     result := LUA_TSTRING else
   if keyword = 'boolean' then
     result := LUA_TBOOLEAN else
   if keyword = 'integer' then
     result := LUA_TNUMBER else
-  if keyword = 'nil' then
-    result := LUA_TNIL;
+  if keyword = 'table' then
+    result := LUA_TTABLE else
+  if keyword = 'function' then
+    result := LUA_TFUNCTION else
+  if keyword = 'thread' then
+    result := LUA_TTHREAD else
+  if keyword = 'lightuserdata' then
+    result := LUA_TLIGHTUSERDATA else
+  if keyword = 'userdata' then
+    result := LUA_TUSERDATA;
 end;
 
 function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
