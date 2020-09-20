@@ -9,6 +9,8 @@ unit pLua;
 
   Changes:
 
+  * 20.09.2020, FD - Added plua_validateargsets and plua_validateargscount,
+    and improved validation functions.
   * 18.09.2020, FD - Added plua_validateargs and plua_validatetype functions.
   * 17.09.2020, FD - plua_functionexists now checks C function.
   Older function renamed to plua_functionexists_noc.
@@ -45,12 +47,6 @@ type
 
 type
   LuaException = class(Exception)
-  end;
-
-type
-  TLuaValidationResult = record
-    OK:boolean;
-    ErrorMessage:string;
   end;
 
 procedure plua_RegisterLuaTable(L: PLua_State; Name: string;
@@ -91,10 +87,22 @@ function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
 
 { FD Additions }
 
+type
+  TLuaTypeRange = 1..9; // LUA_TSTRING, etc.
+  TLuaTypeSet = set of 1..9; // LUA_TSTRING, etc.
+
+type
+  TLuaValidationResult = record
+    OK:boolean;
+    ErrorMessage:string;
+    ArgsCount:integer;
+  end;
+
 procedure plua_dostring(L: PLua_State; AString: String);
 function plua_AnyToString(L: PLua_State; idx: Integer): string;
-function plua_luatypetokeyword(const LuaType: integer): string;
-function plua_keywordtoluatype(const keyword: string): integer;
+function plua_typetokeyword(const LuaType: integer): string;
+function plua_typesettokeyword(const ts: TLuaTypeSet): string;
+function plua_keywordtotype(const keyword: string): integer;
 
 // Gets or sets the value of local and global Lua variables
 function plua_GetLuaVar(L: PLua_State; idx: Integer): Variant;
@@ -104,19 +112,22 @@ procedure plua_SetGlobal(L: PLua_State; varName: string; const AValue: Variant);
 procedure plua_SetLocal(L: PLua_State; varName: string; const AValue: Variant);
 
 // LuaStackToStr method from old LuaUtils project
-function plua_LuaStackToStr(L: Plua_State; Index: Integer; MaxTable: Integer; SubTableMax: Integer): string;
+function plua_LuaStackToStr(L: Plua_State; Index: Integer; MaxTable: Integer;
+  SubTableMax: Integer): string;
 function plua_dequote(const QuotedStr: string): string;
 
 // Lua validation functions
-function plua_validatetype(L: plua_State; const idx, aluatype:integer):boolean;
-function plua_validateargs(L: plua_State; var luaresult:integer; const p:array of integer;const optional:integer=0):TLuaValidationResult;
+function plua_validateargs(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
+function plua_validateargsets(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
+function plua_validateargscount(L: plua_State; var luaresult:integer;
+  const max_args:integer; const optional:integer=0):TLuaValidationResult;
+function plua_validatetype(L: plua_State; const idx, expectedluatype:integer;
+  const allowconv:boolean=false):boolean;
+
 
 implementation
-
-function plua_validatetype(L: plua_State; const idx, aluatype:integer):boolean;
-begin
-  result := lua_type(L, idx) = aluatype;
-end;
 
 // This function makes very easy to validate arguments passed to a C function
 // with just a single line
@@ -126,15 +137,112 @@ end;
 //   if plua_validateargs(L, result, [LUA_TSTRING, LUA_TSTRING]).OK then
 //     lua_pushstring(L, after(lua_tostring(L, 1), lua_tostring(L, 2)));
 // end;
-function plua_validateargs(L: plua_State; var luaresult:integer; const p:array of integer;const optional:integer=0):TLuaValidationResult;
+function plua_validateargs(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
 var
- i, idx, min_args, max_args, num_args:integer;
+ i, idx:integer;
+begin
+  result := plua_validateargscount(L, luaresult, (high(p) +1), optional);
+  // Use ArgsCount instead of high(p) because we only want to validated provided arguments
+  for i := low(p) to result.ArgsCount-1 do
+  begin
+    idx := i+1;
+    if plua_validatetype(L, idx, p[i], true) = false then begin
+      result.OK := false;
+      result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_typetokeyword(p[i]);
+      luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_typetokeyword(p[i]))));
+    end;
+  end;
+end;
+
+// Same as above but allowing arguments to have different types
+// Usage example:
+// function somefunction(L: plua_State): integer; cdecl;
+// const firstarg = [LUA_TSTRING, LUA_TLUATABLE];
+// begin
+//   if plua_validateargsets(L, result, [firstarg, [LUA_TSTRING]]).OK then
+//     somefunction(L, after(lua_tostring(L, 1), lua_tostring(L, 2)));
+// end;
+function plua_validateargsets(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
+var
+  i, idx:integer;
+  ts: TLuaTypeSet;
+  matched:boolean;
+  procedure validate(const lt:integer);
+  begin
+    if plua_validatetype(L, idx, lt, true) then
+    matched := true;
+  end;
+begin
+  result := plua_validateargscount(L, luaresult, (high(p) +1), optional);
+  // Use ArgsCount instead of high(p) because we only want to validated provided arguments
+  for i := low(p) to result.ArgsCount-1 do
+  begin
+    idx := i+1;
+    ts := p[i];
+    matched := false;
+    if LUA_TSTRING in ts then
+      validate(LUA_TSTRING);
+    if LUA_TBOOLEAN in ts then
+      validate(LUA_TBOOLEAN);
+    if LUA_TNUMBER in ts then
+      validate(LUA_TNUMBER);
+    if LUA_TTABLE in ts then
+      validate(LUA_TTABLE);
+    if LUA_TFUNCTION in ts then
+      validate(LUA_TFUNCTION);
+    if LUA_TTHREAD in ts then
+      validate(LUA_TTHREAD);
+    if LUA_TLIGHTUSERDATA in ts then
+      validate(LUA_TLIGHTUSERDATA);
+    if LUA_TUSERDATA in ts then
+      validate(LUA_TUSERDATA);
+    if matched = false then begin
+      result.OK := false;
+      result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_typesettokeyword(p[i]);
+      luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_typesettokeyword(p[i]))));
+    end;
+  end;
+end;
+
+function plua_typesettokeyword(const ts: TLuaTypeSet): string;
+  procedure add(const s:string);
+  begin
+    if result = emptystr then
+    result := s else
+    result := result + ' or ' + s;
+  end;
+begin
+  result := emptystr;
+  if LUA_TSTRING in ts then
+      add('string');
+  if LUA_TBOOLEAN in ts then
+      add('boolean');
+  if LUA_TNUMBER in ts then
+      add('integer');
+  if LUA_TTABLE in ts then
+      add('table');
+  if LUA_TFUNCTION in ts then
+      add('function');
+  if LUA_TTHREAD in ts then
+      add('thread');
+  if LUA_TLIGHTUSERDATA in ts then
+      add('lightuserdata');
+  if LUA_TUSERDATA in ts then
+      add('userdata');
+end;
+
+function plua_validateargscount(L: plua_State; var luaresult:integer;
+  const max_args:integer; const optional:integer=0):TLuaValidationResult;
+var
+  min_args, num_args:integer;
 begin
   luaresult := 1;
-  result.OK := true;
   num_args := lua_gettop(L);
-  min_args := (high(p) +1) -optional;
-  max_args := (high(p) +1) +optional;
+  result.ArgsCount := num_args;
+  result.OK := true;
+  min_args := max_args -optional;
   if num_args < min_args then begin
     result.OK := false;
     if optional > 0 then
@@ -147,19 +255,37 @@ begin
     result.ErrorMessage := 'too many arguments, max '+IntToStr(max_args)+' allowed';
     luaL_error(L, PAnsiChar(AnsiString(result.ErrorMessage)));
   end;
-  // Use num_args instead of high(p) because we only want to validated provided arguments
-  for i := low(p) to num_args-1 do
-  begin
-    idx := i+1;
-    if plua_validatetype(L, idx, p[i]) = false then begin
-      result.OK := false;
-      result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_luatypetokeyword(p[i]);
-      luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_luatypetokeyword(p[i]))));
-    end;
+end;
+
+function plua_validatetype(L: plua_State; const idx, expectedluatype:integer;
+  const allowconv:boolean=false):boolean;
+ function IsInteger(const s: string): Boolean;
+ var
+   v, c: integer;
+ begin
+   Val(s, v, c);
+   if v = 0 then
+   begin // avoid compiler warning
+   end;
+   result := c = 0;
+ end;
+var curluatype: integer;
+begin
+  curluatype := lua_type(L, idx);
+  result := curluatype = expectedluatype;
+  if (allowconv = true) and (result = false) then begin
+    // Expected a string, got number. Lua will convert number to string automatically
+    // Example: string.upper(10) in Lua returns "10"
+    if (expectedluatype = LUA_TSTRING) and (curluatype = LUA_TNUMBER) then
+    result := true;
+    // Expected a number, got string, check if string is number and if true, allow it
+    // Example: math.sqrt("100") in Lua returns 100, but math.sqrt("A") will raise error
+    if (expectedluatype = LUA_TNUMBER) and (curluatype = LUA_TSTRING) and (IsInteger(lua_tostring(L, idx))) then
+    result := true;
   end;
 end;
 
-function plua_luatypetokeyword(const LuaType: integer): string;
+function plua_typetokeyword(const LuaType: integer): string;
 begin
   result := emptystr;
   case LuaType of
@@ -184,7 +310,7 @@ begin
   end;
 end;
 
-function plua_keywordtoluatype(const keyword: string): integer;
+function plua_keywordtotype(const keyword: string): integer;
 begin
   result := LUA_TNONE;
   if keyword = 'none' then
