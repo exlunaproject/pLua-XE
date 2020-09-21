@@ -1,8 +1,8 @@
 A fork of the pLua project, created by Jeremy Darling (@jdarling) and originally hosted at eonclash.com.
 
-This modification has been updated for Delphi XE2 or higher. It still compiles and works with the older, non-Unicode Delphi releases.
+This modification has includes many additions and fixes and has been updated for Delphi XE2 or higher. It still compiles and works with the older, non-Unicode Delphi releases.
 
-It has been mostly tested with Lua 5.1.4 (32 and 64-bit).
+It has been mostly tested with Lua 5.1.4 (64-bit and 32-bit).
 
 pLua is a long term effort to build a set of methods (functions and procedures), objects, and types to aid Pascal Developers (FPC, Lazarus, and Delphi at the moment) in the implementation of Lua in their projects.
 

@@ -9,6 +9,7 @@ unit pLua;
 
   Changes:
 
+  * 21.09.2020, FD - Added strict type validation functions
   * 20.09.2020, FD - Added plua_validateargsets and plua_validateargscount,
     and improved validation functions.
   * 18.09.2020, FD - Added plua_validateargs and plua_validatetype functions.
@@ -85,7 +86,7 @@ procedure plua_GetTableKey(L: PLua_State; TableIndex: Integer; KeyName: string);
 procedure plua_pushansistring(L: PLua_State; AString: ansistring);
 function plua_toansistring(L: PLua_State; Index: Integer): ansistring;
 
-{ FD Additions }
+{ FD: Additions by Felipe Daragon }
 
 type
   TLuaTypeRange = 1..9; // LUA_TSTRING, etc.
@@ -116,38 +117,60 @@ function plua_LuaStackToStr(L: Plua_State; Index: Integer; MaxTable: Integer;
   SubTableMax: Integer): string;
 function plua_dequote(const QuotedStr: string): string;
 
-// Lua validation functions
+{ Lua argument validation functions
+  Proudly present these functions that simplify the process of validating
+  arguments passed to a C function so it can be done with a SINGLE line of code
+}
+function plua_matchtypeset(L: plua_State;const idx:integer;const ts:TLuaTypeSet;
+  const stricttype:boolean=false):boolean;
 function plua_validateargs(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeRange;const optional:integer=0;
+  const stricttype:boolean=false):TLuaValidationResult;
+function plua_validateargs_strict(L: plua_State; var luaresult:integer;
   const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
 function plua_validateargsets(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeSet;const optional:integer=0;
+  const stricttype:boolean=false):TLuaValidationResult;
+function plua_validateargsets_strict(L: plua_State; var luaresult:integer;
   const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
 function plua_validateargscount(L: plua_State; var luaresult:integer;
   const max_args:integer; const optional:integer=0):TLuaValidationResult;
 function plua_validatetype(L: plua_State; const idx, expectedluatype:integer;
-  const allowconv:boolean=false):boolean;
+  const stricttype:boolean=false):boolean;
 
 
 implementation
 
-// This function makes very easy to validate arguments passed to a C function
-// with just a single line
-// Usage example:
-// function str_after(L: plua_State): integer; cdecl;
-// begin
-//   if plua_validateargs(L, result, [LUA_TSTRING, LUA_TSTRING]).OK then
-//     lua_pushstring(L, after(lua_tostring(L, 1), lua_tostring(L, 2)));
-// end;
+{
+  This function makes very easy to validate arguments passed to a C function
+  with just a single line
+
+  Validation example:
+  function str_after(L: plua_State): integer; cdecl;
+  begin
+  if plua_validateargs(L, result, [LUA_TSTRING, LUA_TSTRING]).OK then
+    lua_pushstring(L, after(lua_tostring(L, 1), lua_tostring(L, 2)));
+  end;
+
+  If you have optional arguments, remember to pass the number of optional
+  arguments as the fourth parameter
+
+  If you need strict type validation, for better code readability, use the
+  plua_validateargs_strict() function instead of calling this function
+  with its last parameter set to true.
+}
 function plua_validateargs(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
+  const p:array of TLuaTypeRange;const optional:integer=0;
+  const stricttype:boolean=false):TLuaValidationResult;
 var
  i, idx:integer;
 begin
   result := plua_validateargscount(L, luaresult, (high(p) +1), optional);
-  // Use ArgsCount instead of high(p) because we only want to validated provided arguments
+  // Use ArgsCount instead of high(p) because we only want to validate provided arguments
   for i := low(p) to result.ArgsCount-1 do
   begin
     idx := i+1;
-    if plua_validatetype(L, idx, p[i], true) = false then begin
+    if plua_validatetype(L, idx, p[i], stricttype) = false then begin
       result.OK := false;
       result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_typetokeyword(p[i]);
       luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_typetokeyword(p[i]))));
@@ -155,55 +178,48 @@ begin
   end;
 end;
 
+// Same as above but with strict Lua type validation
+// This means for example that a number passed to C function that expects a string
+// will not be allowed to be converted to string
+function plua_validateargs_strict(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
+begin
+  result := plua_validateargs(L, luaresult, p, optional, true);
+end;
+
 // Same as above but allowing arguments to have different types
 // Usage example:
 // function somefunction(L: plua_State): integer; cdecl;
 // const firstarg = [LUA_TSTRING, LUA_TLUATABLE];
 // begin
-//   if plua_validateargsets(L, result, [firstarg, [LUA_TSTRING]]).OK then
-//     somefunction(L, after(lua_tostring(L, 1), lua_tostring(L, 2)));
+//   if plua_validateargsets(L, result, [firstarg, [LUA_TSTRING]]).OK then begin
+//     ...
+//   end;
 // end;
 function plua_validateargsets(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
+  const p:array of TLuaTypeSet;const optional:integer=0;
+  const stricttype:boolean=false):TLuaValidationResult;
 var
   i, idx:integer;
-  ts: TLuaTypeSet;
-  matched:boolean;
-  procedure validate(const lt:integer);
-  begin
-    if plua_validatetype(L, idx, lt, true) then
-    matched := true;
-  end;
 begin
   result := plua_validateargscount(L, luaresult, (high(p) +1), optional);
   // Use ArgsCount instead of high(p) because we only want to validated provided arguments
   for i := low(p) to result.ArgsCount-1 do
   begin
     idx := i+1;
-    ts := p[i];
-    matched := false;
-    if LUA_TSTRING in ts then
-      validate(LUA_TSTRING);
-    if LUA_TBOOLEAN in ts then
-      validate(LUA_TBOOLEAN);
-    if LUA_TNUMBER in ts then
-      validate(LUA_TNUMBER);
-    if LUA_TTABLE in ts then
-      validate(LUA_TTABLE);
-    if LUA_TFUNCTION in ts then
-      validate(LUA_TFUNCTION);
-    if LUA_TTHREAD in ts then
-      validate(LUA_TTHREAD);
-    if LUA_TLIGHTUSERDATA in ts then
-      validate(LUA_TLIGHTUSERDATA);
-    if LUA_TUSERDATA in ts then
-      validate(LUA_TUSERDATA);
-    if matched = false then begin
+    if plua_matchtypeset(L, idx, p[i], stricttype) = false then begin
       result.OK := false;
       result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_typesettokeyword(p[i]);
       luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_typesettokeyword(p[i]))));
     end;
   end;
+end;
+
+// Same as above but with strict Lua type validation
+function plua_validateargsets_strict(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
+begin
+  result := plua_validateargsets(L, luaresult, p, optional, true);
 end;
 
 function plua_typesettokeyword(const ts: TLuaTypeSet): string;
@@ -258,7 +274,7 @@ begin
 end;
 
 function plua_validatetype(L: plua_State; const idx, expectedluatype:integer;
-  const allowconv:boolean=false):boolean;
+  const stricttype:boolean=false):boolean;
  function IsInteger(const s: string): Boolean;
  var
    v, c: integer;
@@ -273,7 +289,7 @@ var curluatype: integer;
 begin
   curluatype := lua_type(L, idx);
   result := curluatype = expectedluatype;
-  if (allowconv = true) and (result = false) then begin
+  if (stricttype = false) and (result = false) then begin
     // Expected a string, got number. Lua will convert number to string automatically
     // Example: string.upper(10) in Lua returns "10"
     if (expectedluatype = LUA_TSTRING) and (curluatype = LUA_TNUMBER) then
@@ -283,6 +299,33 @@ begin
     if (expectedluatype = LUA_TNUMBER) and (curluatype = LUA_TSTRING) and (IsInteger(lua_tostring(L, idx))) then
     result := true;
   end;
+end;
+
+function plua_matchtypeset(L: plua_State;const idx:integer;const ts:TLuaTypeSet;
+  const stricttype:boolean=false):boolean;
+  procedure validate(const lt:integer);
+  begin
+    if plua_validatetype(L, idx, lt, stricttype) then
+      result := true;
+  end;
+begin
+  result := false;
+  if LUA_TSTRING in ts then
+    validate(LUA_TSTRING);
+  if LUA_TBOOLEAN in ts then
+    validate(LUA_TBOOLEAN);
+  if LUA_TNUMBER in ts then
+    validate(LUA_TNUMBER);
+  if LUA_TTABLE in ts then
+    validate(LUA_TTABLE);
+  if LUA_TFUNCTION in ts then
+    validate(LUA_TFUNCTION);
+  if LUA_TTHREAD in ts then
+    validate(LUA_TTHREAD);
+  if LUA_TLIGHTUSERDATA in ts then
+    validate(LUA_TLIGHTUSERDATA);
+  if LUA_TUSERDATA in ts then
+    validate(LUA_TUSERDATA);
 end;
 
 function plua_typetokeyword(const LuaType: integer): string;
