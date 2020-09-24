@@ -9,12 +9,12 @@ unit pLua;
 
   Changes:
 
+  * 24.09.2020, FD - Added plua_tablefunctionexists and plua_tablecallfunction.
   * 21.09.2020, FD - Added strict type validation functions
   * 20.09.2020, FD - Added plua_validateargsets and plua_validateargscount,
     and improved validation functions.
   * 18.09.2020, FD - Added plua_validateargs and plua_validatetype functions.
   * 17.09.2020, FD - plua_functionexists now checks C function.
-  Older function renamed to plua_functionexists_noc.
                    - Added plua_pushintnumber
   * 16.09.2020, FD - Fixed occasional crash with plua_SetLocal.
   * 30.11.2015, FD - Fixed occasional crash with plua_functionexists.
@@ -55,9 +55,8 @@ procedure plua_RegisterLuaTable(L: PLua_State; Name: string;
   TableIndex: Integer = LUA_GLOBALSINDEX);
 
 function plua_functionexists(L: PLua_State; FunctionName: string;
-  TableIndex: Integer = LUA_GLOBALSINDEX): boolean;
-function plua_functionexists_noc(L: PLua_State; FunctionName: string;
-  TableIndex: Integer): boolean;
+  TableIndex: Integer = LUA_GLOBALSINDEX;
+  const allowcfunction:boolean=true): boolean;
 
 function plua_callfunction(L: PLua_State; FunctionName: string;
   const args: Array of Variant; results: PVariantArray = nil;
@@ -104,6 +103,15 @@ function plua_AnyToString(L: PLua_State; idx: Integer): string;
 function plua_typetokeyword(const LuaType: integer): string;
 function plua_typesettokeyword(const ts: TLuaTypeSet): string;
 function plua_keywordtotype(const keyword: string): integer;
+
+// Checks if table contains function and calls function
+function plua_tablefunctionexists(L: PLua_State; TableName: string;
+  FunctionName: string; TableIndex: Integer = LUA_GLOBALSINDEX;
+  const allowcfunction:boolean=true):boolean;
+function plua_tablecallfunction(L: PLua_State; TableName: string;
+  FunctionName: string; const args: Array of Variant;
+  results: PVariantArray = nil;
+  TableIndex: Integer = LUA_GLOBALSINDEX): Integer;
 
 // Gets or sets the value of local and global Lua variables
 function plua_GetLuaVar(L: PLua_State; idx: Integer): Variant;
@@ -420,7 +428,8 @@ begin
 end;
 
 function plua_functionexists(L: PLua_State; FunctionName: string;
-  TableIndex: Integer): boolean;
+  TableIndex: Integer = LUA_GLOBALSINDEX;
+  const allowcfunction:boolean=true): boolean;
 begin
   if TableIndex = LUA_GLOBALSINDEX then
     lua_getglobal(L, 'tostring'); // FD: fixes global function sometimes not being located
@@ -433,22 +442,7 @@ begin
    lua_pop(L, 1); // FD: added lua_isnil check and lua_pop. Fixes occasional exception
   end;
 
-end;
-
-function plua_functionexists_noc(L: PLua_State; FunctionName: string;
-  TableIndex: Integer): boolean;
-begin
-  if TableIndex = LUA_GLOBALSINDEX then
-    lua_getglobal(L, 'tostring'); // FD: fixes global function sometimes not being located
-  lua_pushstring(L, FunctionName);
-  lua_rawget(L, TableIndex);
-  try
-  Result := (not lua_isnil(L, lua_gettop(L))) and lua_isfunction(L, lua_gettop(L));
-  finally
-    lua_pop(L, 1); // FD: added lua_isnil check and lua_pop. Fixes occasional exception
-  end;
-
-  if Result then
+  if (Result = true) and (allowcfunction = false) then
   begin
     try
     Result := not lua_iscfunction(L, lua_gettop(L));
@@ -456,6 +450,32 @@ begin
       lua_pop(L, 1);
     end;
   end;
+
+end;
+
+function plua_tablefunctionexists(L: PLua_State; TableName: string;
+  FunctionName: string; TableIndex: Integer = LUA_GLOBALSINDEX;
+  const allowcfunction:boolean=true):boolean;
+begin
+  result := false;
+  if TableIndex = LUA_GLOBALSINDEX then
+    lua_getglobal(L, 'tostring');
+  lua_pushstring(L, TableName);
+  lua_rawget(L, TableIndex);
+  if lua_istable(L, lua_gettop(L)) then
+    result := plua_functionexists(L, FunctionName, -2, allowcfunction);
+end;
+
+function plua_tablecallfunction(L: PLua_State; TableName: string;
+  FunctionName: string; const args: Array of Variant;
+  results: PVariantArray = nil;
+  TableIndex: Integer = LUA_GLOBALSINDEX): Integer;
+begin
+  if TableIndex = LUA_GLOBALSINDEX then
+    lua_getglobal(L, 'tostring');
+  lua_pushstring(L, TableName);
+  lua_rawget(L, TableIndex);
+  result := plua_callfunction(L, FunctionName, args, results, -2);
 end;
 
 function plua_callfunction(L: PLua_State; FunctionName: string;
