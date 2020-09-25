@@ -9,6 +9,8 @@ unit pLua;
 
   Changes:
 
+  * 25.09.2020, FD - Added plua_LocateCFunctionInArray and
+    plua_pushcfunction_fromarray
   * 24.09.2020, FD - Added plua_tablefunctionexists and plua_tablecallfunction.
   * 21.09.2020, FD - Added strict type validation functions
   * 20.09.2020, FD - Added plua_validateargsets and plua_validateargscount,
@@ -20,7 +22,7 @@ unit pLua;
   * 30.11.2015, FD - Fixed occasional crash with plua_functionexists.
   * 26.06.2014, FD - Changed to work with string instead of ansistring.
   * 18.06.2014, FD - Added several functions for getting/setting the
-  value of local/global Lua variables
+    value of local/global Lua variables
   * 17.06.2014, FD - Added plua_dostring
   * 19.05.2014, FD - Added backwards compatibility with non-unicode Delphi.
   * 06.05.2013, FD - Added support for Delphi XE2 or higher.
@@ -92,6 +94,12 @@ type
   TLuaTypeSet = set of 1..9; // LUA_TSTRING, etc.
 
 type
+  TLuaFunctionSearchResult = record
+    found : boolean;
+    reg: luaL_Reg;
+  end;
+
+type
   TLuaValidationResult = record
     OK:boolean;
     ErrorMessage:string;
@@ -145,6 +153,12 @@ function plua_validateargscount(L: plua_State; var luaresult:integer;
   const max_args:integer; const optional:integer=0):TLuaValidationResult;
 function plua_validatetype(L: plua_State; const idx, expectedluatype:integer;
   const stricttype:boolean=false):boolean;
+
+// Allow to locate and push a C function contained in an array of luaL_reg
+function plua_LocateCFunctionInArray(const name: string;
+  table: array of luaL_reg): TLuaFunctionSearchResult;
+function plua_pushcfunction_fromarray(L: plua_State; const name: string;
+  table: array of luaL_reg):integer;
 
 
 implementation
@@ -905,6 +919,35 @@ begin
     plua_pushvariant(L, AValue);
     lua_settable(L, LUA_GLOBALSINDEX);
   end;
+end;
+
+function plua_LocateCFunctionInArray(const name: string;
+  table: array of luaL_reg): TLuaFunctionSearchResult;
+var
+  i: integer;
+begin
+  result.found := false;
+  for i := low(table) to high(table) do
+  begin
+    if ansistring(name) = table[i].name then begin
+      result.found := true;
+      result.reg := table[i];
+      break;
+    end;
+  end;
+end;
+
+function plua_pushcfunction_FromArray(L: plua_State; const name: string;
+  table: array of luaL_reg):integer;
+var
+  rs:TLuaFunctionSearchResult;
+begin
+ result := 0;
+ rs := plua_LocateCFunctionInArray(name,table);
+ if rs.found then begin
+   result := 1;
+   lua_pushcfunction(L,rs.reg.func);
+ end;
 end;
 
 // Convert the last item at 'Index' from the stack to a string
