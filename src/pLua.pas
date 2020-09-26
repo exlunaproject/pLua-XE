@@ -195,7 +195,7 @@ begin
    result.optional := 1;
   if vaOptional2 in options then
    result.optional := 2;
-  if vaOptional2 in options then
+  if vaOptional3 in options then
    result.optional := 3;
 end;
 
