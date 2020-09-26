@@ -2,13 +2,15 @@ unit pLua;
 
 {
   Copyright (c) 2007 Jeremy Darling
-  Modifications copyright (c) 2010-2020 Felipe Daragon
+  Modifications and additions copyright (c) 2010-2020 Felipe Daragon
 
   License: MIT (http://opensource.org/licenses/mit-license.php)
   Same as the original code by Jeremy Darling.
 
   Changes:
 
+  * 26.09.2020, FD - Added new functions for method call validation and
+    improved validation functions
   * 25.09.2020, FD - Added plua_LocateCFunctionInArray and
     plua_pushcfunction_fromarray
   * 24.09.2020, FD - Added plua_tablefunctionexists and plua_tablecallfunction.
@@ -100,10 +102,18 @@ type
   end;
 
 type
-  TLuaValidationResult = record
+  TValuaResult = record
     OK:boolean;
     ErrorMessage:string;
     ArgsCount:integer;
+    ArgsCountFromTop:integer;
+  end;
+
+type
+  TVaLuaSettings = record
+    optional:integer;
+    ignore:integer;
+    stricttype:boolean;
   end;
 
 procedure plua_dostring(L: PLua_State; AString: String);
@@ -135,24 +145,35 @@ function plua_dequote(const QuotedStr: string): string;
 
 { Lua argument validation functions
   Proudly present these functions that simplify the process of validating
-  arguments passed to a C function so it can be done with a SINGLE line of code
+  arguments passed to a C function so it can be done with a single line of code
 }
+type
+  TValuaOptions = (
+    vaStrict,
+    vaMethod,
+    vaOptional1,
+    vaOptional2,
+    vaOptional3
+    );
+  TValuaOptionSet = set of TValuaOptions;
 function plua_matchtypeset(L: plua_State;const idx:integer;const ts:TLuaTypeSet;
   const stricttype:boolean=false):boolean;
 function plua_validateargs(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeRange;const optional:integer=0;
-  const stricttype:boolean=false):TLuaValidationResult;
-function plua_validateargs_strict(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
+  const p:array of TLuaTypeRange;
+  const options:TValuaOptionset=[]):TValuaResult;
 function plua_validateargsets(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeSet;const optional:integer=0;
-  const stricttype:boolean=false):TLuaValidationResult;
-function plua_validateargsets_strict(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
+  const p:array of TLuaTypeSet; const options:TValuaOptionset=[]):TValuaResult;
 function plua_validateargscount(L: plua_State; var luaresult:integer;
-  const max_args:integer; const optional:integer=0):TLuaValidationResult;
+  const max_args:integer; const options:TValuaOptionset=[]):TValuaResult;
 function plua_validatetype(L: plua_State; const idx, expectedluatype:integer;
   const stricttype:boolean=false):boolean;
+
+// These can be used with colon-separated method calls to a Lua object
+function plua_validatemethodargs(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeRange;
+  const options:TValuaOptionset=[]):TValuaResult;
+function plua_validatemethodargsets(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeSet; const options:TValuaOptionset=[]):TValuaResult;
 
 // Allow to locate and push a C function contained in an array of luaL_reg
 function plua_LocateCFunctionInArray(const name: string;
@@ -162,6 +183,34 @@ function plua_pushcfunction_fromarray(L: plua_State; const name: string;
 
 
 implementation
+
+function plua_argvalidationset_tosettings(options:TValuaOptionset):TVaLuaSettings;
+begin
+  result.optional := 0;
+  result.ignore := 0;
+  result.stricttype := vaStrict in options;
+  if vaMethod in options then
+   result.ignore := 1;
+  if vaOptional1 in options then
+   result.optional := 1;
+  if vaOptional2 in options then
+   result.optional := 2;
+  if vaOptional2 in options then
+   result.optional := 3;
+end;
+
+function plua_validatemethodcall(L: plua_State;const options:TValuaOptionset):TValuaResult;
+var
+ vs: TVaLuaSettings;
+begin
+  vs := plua_argvalidationset_tosettings(options);
+  result.OK := true;
+  if (vaMethod in options) and (plua_validatetype(L, 1, LUA_TTABLE) = false) then begin
+    result.OK := false;
+    result.ErrorMessage := 'regular function call not allowed, use colon instead of dot';
+    luaL_error(L, PAnsiChar(AnsiString(result.ErrorMessage)));
+  end;
+end;
 
 {
   This function makes very easy to validate arguments passed to a C function
@@ -175,38 +224,37 @@ implementation
   end;
 
   If you have optional arguments, remember to pass the number of optional
-  arguments as the fourth parameter
+  arguments to the fourth parameter. A max of 3 optional parameters is supported
 
-  If you need strict type validation, for better code readability, use the
-  plua_validateargs_strict() function instead of calling this function
-  with its last parameter set to true.
+  If you need strict type validation, pass vaStrict to the fourth parameter or
+  use plua_validateargs_strict() instead.
+  This means for example that a number passed to C function that expects a string
+  will not be allowed to be converted to string
 }
+
 function plua_validateargs(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeRange;const optional:integer=0;
-  const stricttype:boolean=false):TLuaValidationResult;
+  const p:array of TLuaTypeRange;
+  const options:TValuaOptionset=[]):TValuaResult;
 var
- i, idx:integer;
+ i, idx, startarg:integer;
+ vs: TVaLuaSettings;
 begin
-  result := plua_validateargscount(L, luaresult, (high(p) +1), optional);
+  vs := plua_argvalidationset_tosettings(options);
+  result := plua_validatemethodcall(L, options);
+  if result.OK then
+    result := plua_validateargscount(L, luaresult, (high(p) +1), options);
   // Use ArgsCount instead of high(p) because we only want to validate provided arguments
+  if result.OK then
   for i := low(p) to result.ArgsCount-1 do
   begin
-    idx := i+1;
-    if plua_validatetype(L, idx, p[i], stricttype) = false then begin
+    idx := i +1 +vs.ignore;
+    if plua_validatetype(L, idx, p[i], vs.stricttype) = false then begin
       result.OK := false;
       result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_typetokeyword(p[i]);
       luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_typetokeyword(p[i]))));
+      Break;
     end;
   end;
-end;
-
-// Same as above but with strict Lua type validation
-// This means for example that a number passed to C function that expects a string
-// will not be allowed to be converted to string
-function plua_validateargs_strict(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeRange;const optional:integer=0):TLuaValidationResult;
-begin
-  result := plua_validateargs(L, luaresult, p, optional, true);
 end;
 
 // Same as above but allowing arguments to have different types
@@ -219,29 +267,43 @@ end;
 //   end;
 // end;
 function plua_validateargsets(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeSet;const optional:integer=0;
-  const stricttype:boolean=false):TLuaValidationResult;
+  const p:array of TLuaTypeSet;
+  const options:TValuaOptionset=[]):TValuaResult;
 var
   i, idx:integer;
+  vs: TVaLuaSettings;
 begin
-  result := plua_validateargscount(L, luaresult, (high(p) +1), optional);
+  vs := plua_argvalidationset_tosettings(options);
+  result := plua_validatemethodcall(L, options);
+  if result.OK then
+    result := plua_validateargscount(L, luaresult, (high(p) +1), options);
   // Use ArgsCount instead of high(p) because we only want to validated provided arguments
+  if result.OK then
   for i := low(p) to result.ArgsCount-1 do
   begin
-    idx := i+1;
-    if plua_matchtypeset(L, idx, p[i], stricttype) = false then begin
+    idx := i +1 +vs.ignore;
+    if plua_matchtypeset(L, idx, p[i], vs.stricttype) = false then begin
       result.OK := false;
       result.ErrorMessage := 'argument #'+IntToStr(idx)+' must be '+plua_typesettokeyword(p[i]);
       luaL_typerror(L, idx, PAnsiChar(AnsiString(plua_typesettokeyword(p[i]))));
+      Break;
     end;
   end;
 end;
 
-// Same as above but with strict Lua type validation
-function plua_validateargsets_strict(L: plua_State; var luaresult:integer;
-  const p:array of TLuaTypeSet;const optional:integer=0):TLuaValidationResult;
+// Same as above but for Method call validation
+function plua_validatemethodargs(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeRange;
+  const options:TValuaOptionset=[]):TValuaResult;
 begin
-  result := plua_validateargsets(L, luaresult, p, optional, true);
+  result := plua_validateargs(L, luaresult, p, options + [vaMethod]);
+end;
+
+// Same as above but with Method call validation
+function plua_validatemethodargsets(L: plua_State; var luaresult:integer;
+  const p:array of TLuaTypeSet;const options:TValuaOptionset=[]):TValuaResult;
+begin
+  result := plua_validateargsets(L, luaresult, p, options + [vaMethod]);
 end;
 
 function plua_typesettokeyword(const ts: TLuaTypeSet): string;
@@ -272,19 +334,22 @@ begin
 end;
 
 function plua_validateargscount(L: plua_State; var luaresult:integer;
-  const max_args:integer; const optional:integer=0):TLuaValidationResult;
+  const max_args:integer; const options:TValuaOptionset=[]):TValuaResult;
 var
   min_args, num_args:integer;
+  vs: TVaLuaSettings;
 begin
+  vs := plua_argvalidationset_tosettings(options);
   luaresult := 1;
-  num_args := lua_gettop(L);
+  result.ArgsCountFromTop := lua_gettop(L);
+  num_args := result.ArgsCountFromTop -vs.ignore;
   result.ArgsCount := num_args;
   result.OK := true;
-  min_args := max_args -optional;
+  min_args := max_args -vs.optional;
   if num_args < min_args then begin
     result.OK := false;
-    if optional > 0 then
-    result.ErrorMessage := 'missing arguments, '+IntToStr(max_args)+' expected, '+IntToStr(optional)+' optional). ' else
+    if vs.optional > 0 then
+    result.ErrorMessage := 'missing arguments, '+IntToStr(max_args)+' expected, '+IntToStr(vs.optional)+' optional). ' else
     result.ErrorMessage := 'missing arguments, '+IntToStr(min_args)+' expected';
     luaL_error(L, PAnsiChar(AnsiString(result.ErrorMessage)));
   end;

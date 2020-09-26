@@ -3,7 +3,7 @@ unit LuaObject;
 {
   TLuaObject
   Copyright (c) 2007 Jeremy Darling
-  Modifications copyright (c) 2010-2015 Felipe Daragon
+  Modifications copyright (c) 2010-2020 Felipe Daragon
   
   This unit is provided to support the older version of pLua. The new
   features presented within pLuaObject give more flexability when
@@ -13,6 +13,8 @@ unit LuaObject;
   License: MIT (http://opensource.org/licenses/mit-license.php) 
   
   Changes:
+  * 26.09.2020, FD - Added RegisterTLuaObjectAlt, plua_LocateObjectInArray
+    and plua_PushObjectFromArray methods
   * 20.11.2015, FD - Added LocateEvent method
   * 17.06.2014, FD - Changed to work with string instead of ansistring.
 }
@@ -87,6 +89,32 @@ function  index_TLuaObject(L : PLua_State) : Integer; cdecl;
 function  newindex_TLuaObject(L : PLua_State) : Integer; cdecl;
 function  gc_TLuaObject(L : PLua_State) : Integer; cdecl;
 procedure RegisterClassTLuaObject(L : Plua_State);
+
+{ FD: Additions by Felipe Daragon }
+
+type
+  TLuaObjectRegResult = record
+    ObjectName: string;
+  end;
+  plua_RegObjectFunc = function(L : Plua_State):TLuaObjectRegResult;
+  pluaObject_Reg = record
+    name : string;
+    proc : plua_RegObjectFunc;
+  end;
+  TLuaObjectSearchResult = record
+    found : boolean;
+    obj: pluaObject_Reg;
+  end;
+
+function RegisterTLuaObjectAlt(L : Plua_State; ObjectName : String;
+ CreateFunc : lua_CFunction;
+ MethodsCallback : TLuaObjectRegisterMethodsCallback = nil):TLuaObjectRegResult;
+
+function plua_LocateObjectInArray(const name: string;
+  table: array of pluaObject_Reg): TLuaObjectSearchResult;
+
+function plua_pushobjectFromArray(L: plua_State; const name: string;
+  table: array of pluaObject_Reg):integer;
 
 implementation
 
@@ -517,6 +545,53 @@ end;
 procedure RegisterLuaObject(L: Plua_State);
 begin
   RegisterClassTLuaObject(L);
+end;
+
+{ FD: Additions by Felipe Daragon }
+
+// Alternative to RegisterTLuaObject(), registers the object only if a table
+// doesn't exist and returns the registration results in the form of a record
+function RegisterTLuaObjectAlt(L : Plua_State; ObjectName : String;
+ CreateFunc : lua_CFunction;
+ MethodsCallback : TLuaObjectRegisterMethodsCallback = nil):TLuaObjectRegResult;
+begin
+  result.objectname := ObjectName;
+  lua_pushstring(L, ObjectName);
+  lua_rawget(L, LUA_GLOBALSINDEX);
+  if lua_istable(L, -1) = false then
+    RegisterTLuaObject(L, ObjectName, CreateFunc, MethodsCallback);
+end;
+
+function plua_LocateObjectInArray(const name: string;
+  table: array of pluaObject_Reg): TLuaObjectSearchResult;
+var
+  i: integer;
+begin
+  result.found := false;
+  for i := low(table) to high(table) do
+  begin
+    if name = table[i].name then begin
+      result.found := true;
+      result.obj := table[i];
+      break;
+    end;
+  end;
+end;
+
+function plua_PushObjectFromArray(L: plua_State; const name: string;
+  table: array of pluaObject_Reg):integer;
+var
+  src: TLuaObjectSearchResult;
+  reg: TLuaObjectRegResult;
+begin
+ result := 0;
+ src := plua_LocateObjectInArray(name,table);
+ if src.found then begin
+   result := 1;
+   reg := src.obj.proc(L);
+   lua_pushstring(L, reg.objectname);
+   lua_rawget(L, LUA_GLOBALSINDEX);
+ end;
 end;
 
 initialization
