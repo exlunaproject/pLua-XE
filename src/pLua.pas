@@ -9,6 +9,7 @@ unit pLua;
 
   Changes:
 
+  * 29.09.2020, FD - Validate LUA_TNIL in argument when requested
   * 26.09.2020, FD - Added new functions for method call validation and
     improved validation functions
   * 25.09.2020, FD - Added plua_LocateCFunctionInArray and
@@ -226,8 +227,7 @@ end;
   If you have optional arguments, remember to pass the number of optional
   arguments to the fourth parameter. A max of 3 optional parameters is supported
 
-  If you need strict type validation, pass vaStrict to the fourth parameter or
-  use plua_validateargs_strict() instead.
+  If you need strict type validation, pass vaStrict to the fourth parameter.
   This means for example that a number passed to C function that expects a string
   will not be allowed to be converted to string
 }
@@ -299,7 +299,7 @@ begin
   result := plua_validateargs(L, luaresult, p, options + [vaMethod]);
 end;
 
-// Same as above but with Method call validation
+// Same as above but for Method call validation
 function plua_validatemethodargsets(L: plua_State; var luaresult:integer;
   const p:array of TLuaTypeSet;const options:TValuaOptionset=[]):TValuaResult;
 begin
@@ -346,6 +346,7 @@ begin
   result.ArgsCount := num_args;
   result.OK := true;
   min_args := max_args -vs.optional;
+  //writeln('min:'+inttostr(min_args)+' max:'+inttostr(max_args)+' opt:'+inttostr(vs.optional));
   if num_args < min_args then begin
     result.OK := false;
     if vs.optional > 0 then
@@ -397,6 +398,8 @@ function plua_matchtypeset(L: plua_State;const idx:integer;const ts:TLuaTypeSet;
   end;
 begin
   result := false;
+  if LUA_TNIL in ts then
+    validate(LUA_TNIL);
   if LUA_TSTRING in ts then
     validate(LUA_TSTRING);
   if LUA_TBOOLEAN in ts then
