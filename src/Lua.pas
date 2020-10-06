@@ -67,9 +67,6 @@ const
   // Note: LUA_VERSION_NUM for Lua 5.1 will be 501
   LUA_VERSION_NUM = 100*(ord(LUA_VERSION_MAJOR) - ord('0')) + ord(LUA_VERSION_MINOR) - ord('0');
 
- {$IF LUA_VERSION_NUM >= 501} // Lua 5.1 or higher
-  {$DEFINE LUA51_OR_UP}
- {$IFEND}
  {$IF LUA_VERSION_NUM >= 502} // Lua 5.2 or higher
   {$DEFINE LUA52_OR_UP}
  {$IFEND}
