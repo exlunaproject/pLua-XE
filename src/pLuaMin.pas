@@ -13,6 +13,8 @@ unit pLuaMin;
 
 interface
 
+{$I Lua.inc}
+
 uses
   Lua;
 

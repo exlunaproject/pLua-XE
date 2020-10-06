@@ -3,11 +3,18 @@ unit Lua;
 {
   A complete Pascal wrapper for Lua 5.1 DLL module.
   Copyright (c) 2006 Geo Massar
-  Modifications copyright (c) 2010-2014 Felipe Daragon
+  Modifications copyright (c) 2009-2017 Denis Golovan (@MageSlayer)
+  Modifications copyright (c) 2010-2020 Felipe Daragon
 
   License: same as Lua 5.1 (license at the end of this file).
-  
+
+  Note: support for Lua 5.2 or higher is still work in progress. This wrapper
+  will not work with these versions YET. This notice will be removed when it is
+  ready
+
   Changes:
+  * 06.10.2020, FD - Added initial LuaJIT support based on code contributed by
+  MageSlayer
   * 17.06.2014, FD - Added overloaded lua_pushliteral and lua_setfield.
   * 16.06.2014, FD - Added overload for lua_pushstring and lua_register;
   lua_tostring now returns string.
@@ -18,12 +25,60 @@ unit Lua;
 
 interface
 
-{$IFDEF UNIX}
-uses
-  dl;
+{$IFDEF FPC}
+  {$T+} // typed pointers
+  {$IFDEF CPU32}
+   {$DEFINE CPU32BITS}
+  {$ENDIF}
+  {$IFDEF CPU64}
+    {$DEFINE CPU64BITS}
+  {$ENDIF}
+{$ELSE}
+  type PtrInt = NativeInt;
 {$ENDIF}
 
-{$DEFINE LUA51}
+{$I Lua.inc}
+
+{$IFDEF FPC}
+ {$IFDEF UNIX}
+ uses
+   dl;
+ {$ENDIF}
+{$ENDIF}
+
+const
+{$IF defined(LUA51)}
+  LUA_VERSION_MAJOR = '5';
+  LUA_VERSION_MINOR = '1';
+{$ELSEIF defined(LUA52)}
+  LUA_VERSION_MAJOR = '5';
+  LUA_VERSION_MINOR = '2';
+{$ELSEIF defined(LUA53)}
+  LUA_VERSION_MAJOR = '5';
+  LUA_VERSION_MINOR = '3';
+{$ELSEIF defined(LUA54)}
+  LUA_VERSION_MAJOR = '5';
+  LUA_VERSION_MINOR = '4';
+{$ELSE}
+  // Use Lua 5.1 if no version has been defined
+  LUA_VERSION_MAJOR = '5';
+  LUA_VERSION_MINOR = '1';
+{$IFEND}
+  // Note: LUA_VERSION_NUM for Lua 5.1 will be 501
+  LUA_VERSION_NUM = 100*(ord(LUA_VERSION_MAJOR) - ord('0')) + ord(LUA_VERSION_MINOR) - ord('0');
+
+ {$IF LUA_VERSION_NUM >= 501} // Lua 5.1 or higher
+  {$DEFINE LUA51_OR_UP}
+ {$IFEND}
+ {$IF LUA_VERSION_NUM >= 502} // Lua 5.2 or higher
+  {$DEFINE LUA52_OR_UP}
+ {$IFEND}
+ {$IF LUA_VERSION_NUM >= 503} // Lua 5.3 or higher
+  {$DEFINE LUA53_OR_UP}
+ {$IFEND}
+ {$IF LUA_VERSION_NUM >= 504} // Lua 5.4 or higher
+  {$DEFINE LUA54_OR_UP}
+ {$IFEND}
 
 type
 {$IFDEF UNICODE}
@@ -33,7 +88,12 @@ type
 {$ENDIF}
 
 type
+  {$IFDEF CPU32BITS}
   size_t   = type Cardinal;
+  {$ENDIF}
+  {$IFDEF CPU64BITS}
+  size_t   = type NativeUint;
+  {$ENDIF}
   Psize_t  = ^size_t;
   PPointer = ^Pointer;
 
@@ -42,17 +102,34 @@ type
 
 const
 {$IFDEF MSWINDOWS}
-  LuaDLL = 'lua5.1.dll';
+  {$IFDEF NOLUAPROXYLIB}
+  LuaDLL = 'lua'+LUA_VERSION_MAJOR + '.' + LUA_VERSION_MINOR+'.dll';
+  {$ELSE}
+  // Using the proxy library (lua51.dll instead of lua5.1.dll) is better for
+  // compatibility with various Lua C libraries
+  LuaDLL = 'lua'+LUA_VERSION_MAJOR + LUA_VERSION_MINOR+'.dll';
+  {$ENDIF}
 {$ENDIF}
 {$IFDEF UNIX}
-{$IFDEF DARWIN}
-  LuaDLL = 'lua5.1.dylib';
-{$ELSE}
-  LuaDLL = 'lua5.1.so';
+ {$IFDEF DARWIN}
+   LuaDLL = 'liblua.dylib';
+   {$linklib liblua}
+ {$ELSE}
+   //LuaDLL = 'lua5.1.so';
+   {$IFDEF LUAJIT}
+   LuaDLL = 'libluajit.so';
+   {$ELSE}
+   LuaDLL = 'liblua.so.'+LUA_VERSION_MAJOR;
+  {$ENDIF}
 {$ENDIF}
 {$ENDIF}
 {$IFDEF MACOS}
-  SDLgfxLibName = 'lua5.1';
+  //SDLgfxLibName = 'lua5.1';
+  {$IFDEF LUAJIT}
+  LuaDLL = 'libluajit.dylib';
+  {$ELSE}
+  LuaDLL = 'liblua.dylib';
+  {$ENDIF}  
 {$ENDIF}
 
 (* formats for Lua numbers *)
@@ -86,7 +163,7 @@ const
 *)
 type
   LUA_NUMBER_  = type Double;            // ending underscore is needed in Pascal
-  LUA_INTEGER_ = type Integer;
+  LUA_INTEGER_ = type PtrInt;
 
 (*
 @@ LUA_IDSIZE gives the maximum size for the description of the source
@@ -149,8 +226,7 @@ const
 *)
 
 const
-  LUA_VERSION     = 'Lua 5.1';
-  LUA_VERSION_NUM = 501;
+  LUA_VERSION     = 'Lua ' + LUA_VERSION_MAJOR + '.' + LUA_VERSION_MINOR;
   LUA_COPYRIGHT   = 'Copyright (C) 1994-2006 Tecgraf, PUC-Rio';
   LUA_AUTHORS     = 'R. Ierusalimschy, L. H. de Figueiredo & W. Celes';
 
@@ -209,6 +285,9 @@ const
   LUA_TFUNCTION      = 6;
   LUA_TUSERDATA	     = 7;
   LUA_TTHREAD        = 8;
+  {$IFDEF LUAJIT}
+  LUA_TCDATA         = 10;
+  {$ENDIF}
 
   (* minimum Lua stack available to a C function *)
   LUA_MINSTACK = 20;
@@ -219,6 +298,7 @@ type
 
   (* type for integer functions *)
   lua_Integer = LUA_INTEGER_;
+
 
 (*
 ** state manipulation
@@ -233,6 +313,10 @@ function  lua_newthread(L : Plua_State) : Plua_State;
 function  lua_atpanic(L : Plua_State; panicf : lua_CFunction) : lua_CFunction;
   cdecl; external LuaDLL;
 
+{$IFDEF LUA_BREAK_SUPPORT}
+procedure  lua_breakpressed_handler(L : Plua_State; func:Pointer; self:pointer);
+  cdecl; external LuaDLL;
+{$ENDIF}
 
 (*
 ** basic stack manipulation
@@ -645,7 +729,7 @@ function luaL_callmeta(L : Plua_State; obj : Integer;
   cdecl; external LuaDLL;
 function luaL_typerror(L : Plua_State; narg : Integer;
                        const tname : PAnsiChar) : Integer;
-  cdecl; external LuaDLL;
+  cdecl; {$IFNDEF LUA52_OR_UP} external LuaDLL; {$ENDIF}
 function luaL_argerror(L : Plua_State; numarg : Integer;
                        const extramsg : PAnsiChar) : Integer;
   cdecl; external LuaDLL;
@@ -696,9 +780,16 @@ procedure luaL_unref(L : Plua_State; t, ref : Integer);
 
 function luaL_loadfile(L : Plua_State; const filename : PAnsiChar) : Integer;
   cdecl; external LuaDLL;
+
 function luaL_loadbuffer(L : Plua_State; const buff : PAnsiChar;
                          sz : size_t; const name: PAnsiChar) : Integer;
+  cdecl; {$IFNDEF LUA52_OR_UP} external LuaDLL; {$ENDIF}
+
+{$IFDEF LUA52_OR_UP}
+function luaL_loadbufferx(L : Plua_State; const buff : PAnsiChar;
+  sz : size_t; const name: PAnsiChar; const mode: PAnsiChar) : Integer;
   cdecl; external LuaDLL;
+{$ENDIF}
 
 function luaL_loadstring(L : Plua_State; const s : PAnsiChar) : Integer;
   cdecl; external LuaDLL;
@@ -1092,6 +1183,24 @@ procedure lua_setfield(L : Plua_State; idx : Integer; const k : string); overloa
 begin
   lua_setfield(L, idx, PAnsiChar(ansistring(string(k))));
 end;
+
+{$IFDEF LUA52_OR_UP}
+// luaL_typerror was removed in Lua 5.2
+// temporarily calling arg error, but should write custom version of it
+function luaL_typerror(L : Plua_State; narg : Integer;
+                       const tname : PAnsiChar) : Integer;
+  cdecl;
+begin
+  result := luaL_argerror(L, narg, tname);
+end;
+
+function luaL_loadbuffer(L : Plua_State; const buff : PAnsiChar;
+  sz : size_t; const name: PAnsiChar) : Integer; cdecl;
+begin
+  result := luaL_loadbufferx(L, buff, sz, name, nil);
+  //result := luaL_error(L, 'luaL_loadbuffer not available in this Lua version.');
+end;
+{$ENDIF}
 
 
 (******************************************************************************

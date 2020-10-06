@@ -33,9 +33,12 @@ unit pLua;
 
 {$IFDEF FPC}
 {$mode objfpc}{$H+}
+{$modeswitch nestedprocvars}
 {$ENDIF}
 
 interface
+
+{$I Lua.inc}
 
 uses
   SysUtils, Classes, Variants, Lua;

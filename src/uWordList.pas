@@ -20,6 +20,8 @@ unit uWordList;
 
 interface
 
+{$I Lua.inc}
+
 uses
   Classes, SysUtils;
   

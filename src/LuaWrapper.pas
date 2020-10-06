@@ -19,6 +19,8 @@ interface
 {$mode objfpc}{$H+}
 {$ENDIF}
 
+{$I Lua.inc}
+
 {$DEFINE TLuaAsComponent}
 {$DEFINE TLuaHandlersAsIsObjectType}
 

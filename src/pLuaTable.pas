@@ -1,13 +1,15 @@
 {
   Useful functions for getting/setting the value of Lua table fields
 
-  Copyright (c) 2003-2015 Felipe Daragon
+  Copyright (c) 2003-2020 Felipe Daragon
   License: MIT (http://opensource.org/licenses/mit-license.php)
 }
 
 unit pLuaTable;
 
 interface
+
+{$I Lua.inc}
 
 uses
   Classes, Lua, pLua;
@@ -35,6 +37,8 @@ function plua_GetFieldValueInt(L: PLua_State; idx: integer; FieldName: string;
   ADefaultValue: integer): integer;
 function plua_GetFieldValueBool(L: PLua_State; idx: integer; FieldName: string;
   ADefaultValue: boolean): boolean;
+function plua_GetFieldValueType(L: PLua_State; idx: integer; FieldName: string):
+  integer;
 function plua_GetFieldValueVariant(L: PLua_State; idx: integer;
   FieldName: string; ADefaultValue: Variant): Variant;
 
@@ -142,6 +146,14 @@ begin
     Result := ADefaultValue
   else
     Result := lua_toboolean(L, -1);
+end;
+
+function plua_GetFieldValueType(L: PLua_State; idx: integer; FieldName: string)
+  : integer;
+begin
+  lua_pushstring(L, FieldName);
+  lua_gettable(L, idx);
+  result := lua_type(L, -1);
 end;
 
 function plua_GetFieldValueVariant(L: PLua_State; idx: integer;

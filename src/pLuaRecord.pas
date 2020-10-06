@@ -12,9 +12,12 @@ unit pLuaRecord;
 
 {$IFDEF FPC}
 {$mode objfpc}{$H+}
+{$TYPEDADDRESS ON}
 {$ENDIF}
 
 interface
+
+{$I Lua.inc}
 
 uses
   Classes, SysUtils, Lua, pLua, uWordList, pLuaObject, Types;
