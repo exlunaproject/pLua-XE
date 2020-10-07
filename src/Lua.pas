@@ -35,6 +35,9 @@ interface
   {$ENDIF}
 {$ELSE}
   type PtrInt = NativeInt;
+  {$IF CompilerVersion < 23}
+    {$DEFINE CPU32BITS}
+  {$IFEND}
 {$ENDIF}
 
 {$I Lua.inc}
