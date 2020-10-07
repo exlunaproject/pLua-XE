@@ -63,6 +63,7 @@ const
   // Use Lua 5.1 if no version has been defined
   LUA_VERSION_MAJOR = '5';
   LUA_VERSION_MINOR = '1';
+  {$DEFINE LUA51}  
 {$IFEND}
   // Note: LUA_VERSION_NUM for Lua 5.1 will be 501
   LUA_VERSION_NUM = 100*(ord(LUA_VERSION_MAJOR) - ord('0')) + ord(LUA_VERSION_MINOR) - ord('0');

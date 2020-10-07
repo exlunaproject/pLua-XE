@@ -9,6 +9,8 @@ unit pLua;
 
   Changes:
 
+  * 07.10.2020, FD - Added plua_tovariantrec for storing the lua type and
+    value converted to Variant
   * 29.09.2020, FD - Validate LUA_TNIL in argument when requested
   * 26.09.2020, FD - Added new functions for method call validation and
     improved validation functions
@@ -120,11 +122,18 @@ type
     stricttype:boolean;
   end;
 
+type
+  TLuaVariantRec = record
+    LuaType: integer;
+    Value: Variant;
+  end;
+
 procedure plua_dostring(L: PLua_State; AString: String);
 function plua_AnyToString(L: PLua_State; idx: Integer): string;
 function plua_typetokeyword(const LuaType: integer): string;
 function plua_typesettokeyword(const ts: TLuaTypeSet): string;
 function plua_keywordtotype(const keyword: string): integer;
+function plua_tovariantrec(L: PLua_State; idx: Integer): TLuaVariantRec;
 
 // Checks if table contains function and calls function
 function plua_tablefunctionexists(L: PLua_State; TableName: string;
@@ -804,6 +813,12 @@ begin
   luaL_loadbuffer(L, PAnsiChar(ansistring(AString)), Length(ansistring(AString)
     ), PAnsiChar(ansistring(emptystr)));
   lua_pcall(L, 0, 0, 0);
+end;
+
+function plua_tovariantrec(L: PLua_State; idx: Integer): TLuaVariantRec;
+begin
+  result.LuaType := lua_type(L, idx);
+  result.Value := plua_tovariant(L, idx);
 end;
 
 // This is similar to lua_tostring but covers boolean and number Lua types

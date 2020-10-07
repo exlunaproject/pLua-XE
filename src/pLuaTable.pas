@@ -51,10 +51,16 @@ procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   AValue: boolean); overload;
 procedure plua_SetFieldValue(L: PLua_State; FieldName: string;
   ATable: plual_reg); overload;
-procedure plua_SetFieldValue(L: PLua_State; Name: string; Reader: lua_CFunction;
-  Writer: lua_CFunction); overload;
 procedure plua_SetFieldValueV(L: PLua_State; FieldName: string;
   AValue: Variant);
+
+// Sets a reader and writer C function as a table field
+procedure plua_SetFieldValueRW(L: PLua_State; Name: string; Reader: lua_CFunction;
+  Writer: lua_CFunction; Tag:integer=0);
+// Sets a C function as a table field
+procedure plua_SetFieldValueCF(L: PLua_State; Name: string;
+  Func: lua_CFunction; Tag:integer=0);
+// If tag is different than 0 than it is pushed as an upvalue of the function
 
 implementation
 
@@ -85,27 +91,6 @@ begin
   lua_newtable(L);
   lual_register(L, nil, ATable);
   lua_setfield(L, -2, FieldName);
-end;
-
-procedure plua_SetFieldValue(L: PLua_State; Name: string; Reader: lua_CFunction;
-  Writer: lua_CFunction); overload;
-var
-  tidx, midx: integer;
-begin
-  lua_newtable(L);
-  tidx := lua_gettop(L);
-
-  lua_newtable(L);
-  midx := lua_gettop(L);
-
-  lua_pushstring(L, '__index');
-  lua_pushcfunction(L, Reader);
-  lua_rawset(L, midx);
-  lua_pushstring(L, '__newindex');
-  lua_pushcfunction(L, Writer);
-  lua_rawset(L, midx);
-  lua_setmetatable(L, tidx);
-  lua_setfield(L, -2, Name);
 end;
 
 procedure plua_SetFieldValueV(L: PLua_State; FieldName: string;
@@ -165,6 +150,47 @@ begin
     Result := ADefaultValue
   else
     Result := plua_tovariant(L, -1);
+end;
+
+procedure plua_SetFieldValueCF(L: PLua_State; Name: string;
+  Func: lua_CFunction; Tag:integer=0);
+begin
+  if tag = 0 then
+    lua_pushcfunction(L, Func)
+  else begin
+    lua_pushnumber(L, tag);
+    lua_pushcclosure(L, func, 1);
+  end;
+  lua_setfield(L, -2, Name);
+end;
+
+procedure plua_SetFieldValueRW(L: PLua_State; Name: string; Reader: lua_CFunction;
+  Writer: lua_CFunction; Tag:integer=0);
+var
+  tidx, midx: integer;
+begin
+  lua_newtable(L);
+  tidx := lua_gettop(L);
+
+  lua_newtable(L);
+  midx := lua_gettop(L);
+
+  lua_pushstring(L, '__index');
+  if Tag = 0 then
+    lua_pushcfunction(L, Reader) else begin
+    lua_pushnumber(L, tag);
+    lua_pushcclosure(L, Reader, 1);
+  end;
+  lua_rawset(L, midx);
+  lua_pushstring(L, '__newindex');
+  if Tag = 0 then
+    lua_pushcfunction(L, Writer) else begin
+    lua_pushnumber(L, tag);
+    lua_pushcclosure(L, Writer, 1);
+  end;
+  lua_rawset(L, midx);
+  lua_setmetatable(L, tidx);
+  lua_setfield(L, -2, Name);
 end;
 
 { TLuaTable }
