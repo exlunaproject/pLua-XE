@@ -13,6 +13,7 @@ unit Lua;
   ready
 
   Changes:
+  * 12.10.2020, FD - Added overloaded luaL_error.
   * 06.10.2020, FD - Added initial LuaJIT support based on code contributed by
   MageSlayer
   * 17.06.2014, FD - Added overloaded lua_pushliteral and lua_setfield.
@@ -768,7 +769,9 @@ function luaL_checkudata(L : Plua_State; ud : Integer;
 procedure luaL_where(L : Plua_State; lvl : Integer);
   cdecl; external LuaDLL;
 function  luaL_error(L : Plua_State; const fmt : PAnsiChar) : Integer; varargs;
-  cdecl; external LuaDLL;
+  cdecl; external LuaDLL; overload;
+function  luaL_error(L : Plua_State; const fmt : string) : Integer;
+  cdecl; overload;
 
 function luaL_checkoption(L : Plua_State; narg : Integer; const def : PAnsiChar;
                           const lst : array of PAnsiChar) : Integer;
@@ -1163,6 +1166,12 @@ end;
 procedure lua_getref(L : Plua_State; ref : Integer);
 begin
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+end;
+
+function luaL_error(L : Plua_State; const fmt : string) : Integer;
+  cdecl; overload;
+begin
+  luaL_error(L, PAnsiChar(ansistring(string(fmt))));
 end;
 
 procedure lua_pushstring(L: PLua_State; const s : string); overload;
