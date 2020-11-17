@@ -2,8 +2,7 @@ program ConfigApp;
 
 uses
   Forms,
-  MainForm in 'MainForm.pas' {frmMain},
-  luaConfig;
+  MainForm in 'MainForm.pas' {frmMain};
 
 {$R *.res}
 
