@@ -24,7 +24,7 @@ var
 implementation
 
 uses
-  luaConfig, pluaRecord;
+  pluaRecord;
   
 {$R *.dfm}
 
@@ -57,9 +57,6 @@ begin
   Lua.LoadFile('config.lua');
   Lua.RegisterLuaMethod('HexToInt', @lua_HexToInt);
   Lua.RegisterLuaMethod('SetConfig', @lua_SetConfig);
-  // Create a "new" version of our virtual record type and register it to the lua
-  // global name of "Config"
-  plua_registerExistingRecord(Lua.LuaState, 'Config', nil, RecordTypesList['TConfig']);
 end;
 
 procedure TfrmMain.FormShow(Sender: TObject);
